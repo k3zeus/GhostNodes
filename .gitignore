@@ -1,0 +1,38 @@
+# GHOST NODES - GIT IGNORE
+# Proteção de Infraestrutura e Dependências
+
+# I.A & Agentes (Privado)
+.agent/
+.gemini/
+**/brain/
+**/logs/
+**/.system_generated/
+**/*.webp
+**/*.png
+!halfin/images/
+!web/frontend/public/
+
+# Dependências JS
+node_modules/
+package-lock.json
+.pnpm-store/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Sistema / Logs
+var/log/
+*.log
+.DS_Store
+Thumbs.db
+ghostnodes_backup/
+
+# Exceções (Arquivos mantidos por ordem direta do usuário)
+!temp.sh
+!**/pass.txt
+!**/*.env
+!**/*.env.example

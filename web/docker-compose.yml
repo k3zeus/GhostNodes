@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  ghost-api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ghost-api
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      # Read-only volumes para que a API intercepte a saude nativa da SBC
+      - /proc:/host/proc:ro
+      - /sys/class/thermal:/host/sys/class/thermal:ro
+    environment:
+      - HOST_PROC=/host/proc
+      - BITCOIN_RPC_URL=http://172.17.0.1:8332
+      - BITCOIN_RPC_USER=${BITCOIN_RPC_USER:-satoshi}
+      - BITCOIN_RPC_PASS=${BITCOIN_RPC_PASS:-changeme}
+
+  ghost-ui:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: ghost-ui
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - ghost-api
