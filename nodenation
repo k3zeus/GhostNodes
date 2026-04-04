@@ -46,7 +46,7 @@ GN_TMP_VAR="/tmp/ghostnodes_var"                   # hw.env, state e auto.sh tem
 GN_TMP_HW="${GN_TMP_VAR}/hardware.env"
 GN_TMP_STATE="${GN_TMP_VAR}/install.state"
 
-GN_REPO_URL="https://github.com/greycitizen/ghostnodes/archive/refs/heads/main.tar.gz"
+GN_REPO_URL="https://github.com/k3zeus/GhostNodes/archive/refs/tags/beta.tar.gz"
 GN_REPO_DIR_NAME="ghostnodes-main"
 
 # Lib — tenta carregar se o projeto já estiver instalado
