@@ -38,11 +38,12 @@ sudo curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/m
 
 ---
 
-## 📚 Technical Documentation
-Detailed technical documentation is available in the [`/docs`](./docs) directory:
-- [**Project Brief**](./docs/PROJECT_BRIEF.md): Mission, vision, and roadmap.
-- [**Architecture**](./docs/ARCHITECTURE.md): System design and technical stack.
-- [**Tech Patterns**](./docs/TECH_PATTERN.md): Development standards and SDD rules.
+## 📚 Technical Documentation (v0.15 Beta)
+Detailed technical documentation and development standards:
+- [**Architecture**](./ARCHITECTURE.md): System design, networking, and security layers.
+- [**Project Brief**](./PROJECT_BRIEF.md): Mission, vision, and roadmap (Bilingual EN/PT).
+- [**Tech Patterns**](./TECH_PATTERN.md): Development standards and technology stack.
+- [**Web Setup**](./web/WEBAPP_SETUP.md): Guide to install and run the Dashboard.
 
 ---
-**Maintained by k3zeus** | *Sovereignty starts at home.*
+**Maintained by k3zeus** | *Sovereignty starts at hardware.*

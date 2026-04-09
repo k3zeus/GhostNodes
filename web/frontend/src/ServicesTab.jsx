@@ -1,17 +1,132 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Network, Router, Box, Users, Share2, Terminal, PlayCircle, Loader2, CheckCircle, AlertCircle, Search, Eye, ShieldAlert, HelpCircle } from 'lucide-react';
+import { Network, Router, Box, Users, Share2, Terminal, PlayCircle, Loader2, CheckCircle, AlertCircle, Search, Eye, ShieldAlert, HelpCircle, UserPlus, Trash2, Key, UserCheck } from 'lucide-react';
 import PiholeTab from './PiholeTab';
 
-export default function ServicesTab({ token }) {
+export default function ServicesTab({ token, role }) {
   const [activeSubTab, setActiveSubTab] = useState('ROUTING');
   const [showHelp, setShowHelp] = useState(false);
   const [logs, setLogs] = useState('');
-  const [status, setStatus] = useState('idle'); // idle, loading, success, error
+  const [status, setStatus] = useState('idle'); 
+  
+  // States para Gestão de Usuários
+  const [dashboardUsers, setDashboardUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  
+  // Dashboard User Form
+  const [dashUsername, setDashUsername] = useState('');
+  const [dashPassword, setDashPassword] = useState('');
+  const [dashRole, setDashRole] = useState('viewer');
+  
+  // Linux User Form
+  const [linuxUsername, setLinuxUsername] = useState('');
+  const [linuxPassword, setLinuxPassword] = useState('');
+
+  const isAdmin = role === 'admin';
+
+  useEffect(() => {
+    if (activeSubTab === 'USERS' && isAdmin) {
+      fetchDashboardUsers();
+    }
+  }, [activeSubTab, isAdmin]);
+
+  const fetchDashboardUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/auth/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setDashboardUsers(await res.json());
+      }
+    } catch (err) {
+      console.error("Erro ao buscar usuários:", err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleCreateDashUser = async (e) => {
+    e.preventDefault();
+    if (!dashUsername || !dashPassword) return;
+    
+    setStatus('loading');
+    try {
+      const res = await fetch('http://localhost:8000/api/auth/users', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ username: dashUsername, password: dashPassword, role: dashRole })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLogs(prev => prev + `\n[SUCCESS] Dashboard user '${dashUsername}' created.\n`);
+        setDashUsername(''); setDashPassword('');
+        fetchDashboardUsers();
+        setStatus('success');
+      } else {
+        setLogs(prev => prev + `\n[ERROR] ${data.detail}\n`);
+        setStatus('error');
+      }
+    } catch (err) {
+      setStatus('error');
+    }
+  };
+
+  const handleDeleteDashUser = async (username) => {
+    if (!window.confirm(`Confirma exclusão do usuário ${username}?`)) return;
+    
+    try {
+      const res = await fetch(`http://localhost:8000/api/auth/users/${username}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setLogs(prev => prev + `\n[SUCCESS] Dashboard user '${username}' removed.\n`);
+        fetchDashboardUsers();
+      }
+    } catch (err) {
+      console.error("Erro ao deletar:", err);
+    }
+  };
+
+  const handleCreateLinuxUser = async (e) => {
+    e.preventDefault();
+    if (!linuxUsername || !linuxPassword) return;
+    
+    setStatus('loading');
+    try {
+      const res = await fetch('http://localhost:8000/api/system/users/linux', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ username: linuxUsername, password: linuxPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLogs(prev => prev + `\n[SUCCESS] Linux system user '${linuxUsername}' created.\n`);
+        setLinuxUsername(''); setLinuxPassword('');
+        setStatus('success');
+      } else {
+        setLogs(prev => prev + `\n[ERROR] ${data.detail}\n`);
+        setStatus('error');
+      }
+    } catch (err) {
+      setStatus('error');
+    }
+  };
 
   const runScript = async (scriptPath, commandDisplayLabel) => {
+    if (!isAdmin) {
+      alert("Acesso negado: Apenas administradores podem executar scripts.");
+      return;
+    }
     setStatus('loading');
-    setLogs(prev => prev + `\n---------------------------------------\n$ run => ${commandDisplayLabel}\n[Aguardando processamento e resposta Backend...]\n`);
+    setLogs(prev => prev + `\n---------------------------------------\n$ run => ${commandDisplayLabel}\n`);
 
     try {
       const response = await fetch('http://localhost:8000/api/actions/execute', {
@@ -27,14 +142,14 @@ export default function ServicesTab({ token }) {
 
       if (response.ok) {
         setStatus(data.status === 'success' ? 'success' : 'error');
-        setLogs(prev => prev + `\n--- STDOUT ---\n${data.stdout || ''}\n--- STDERR ---\n${data.stderr || ''}\n[Exit Code: ${data.exit_code}]\n`);
+        setLogs(prev => prev + `\n--- STDOUT ---\n${data.stdout || ''}\n--- STDERR ---\n${data.stderr || ''}\n`);
       } else {
         setStatus('error');
-        setLogs(prev => prev + `\n[ERRO HTTP ${response.status}] ${data.detail || 'Desconhecido'}\n`);
+        setLogs(prev => prev + `\n[ERRO HTTP ${response.status}] ${data.detail}\n`);
       }
     } catch (err) {
       setStatus('error');
-      setLogs(prev => prev + `\n[FALHA DE REDE] ${err.message}\nVerifique se o Backend FastAPI está rodando.\n`);
+      setLogs(prev => prev + `\n[FALHA DE REDE] ${err.message}\n`);
     }
   };
 
@@ -101,21 +216,10 @@ export default function ServicesTab({ token }) {
                   <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0, fontSize: '1.2rem', color: 'var(--text-main)' }}>
                     <Router size={22} color="var(--accent-glow)" /> Halfin Firewall & Routing
                   </h2>
-                  <button onClick={() => setShowHelp(!showHelp)} style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}>
-                    <HelpCircle size={16} /> {showHelp ? 'Ocultar Ajuda' : 'Ajuda'}
-                  </button>
                 </div>
                 
-                {showHelp && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
-                    <p className="text-dim" style={{ fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>
-                      Executa a carga das regras iptables e ip_forwarding via nat, garantindo que portas ethernet compartilhem a Bridge wlan1 (Internet Pública) para a wlan0 (LAN Privada isolada).
-                    </p>
-                  </motion.div>
-                )}
-                
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <button onClick={() => runScript("halfin/routing.sh", "halfin/routing.sh")} disabled={status === 'loading'} className="action-btn action-secondary">
+                  <button onClick={() => runScript("halfin/routing.sh", "halfin/routing.sh")} disabled={status === 'loading' || !isAdmin} className="action-btn action-secondary">
                     {status === 'loading' ? <Loader2 size={18} className="spin" /> : <PlayCircle size={18} />}
                     {status === 'loading' ? 'Executando...' : 'Aplicar Regras GW de Rede'}
                   </button>
@@ -123,59 +227,111 @@ export default function ServicesTab({ token }) {
               </>
             )}
 
-            {/* ------------ VIEW: WIFI ------------ */}
-            {activeSubTab === 'WIFI' && (
-              <>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0, fontSize: '1.2rem', color: 'var(--text-main)' }}>
-                    <Network size={22} color="var(--accent-glow)" /> Ferramentas Wireless
-                  </h2>
-                  <button onClick={() => setShowHelp(!showHelp)} style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}>
-                    <HelpCircle size={16} /> {showHelp ? 'Ocultar Ajuda' : 'Ajuda'}
-                  </button>
-                </div>
+            {/* ------------ VIEW: USERS (NOVO) ------------ */}
+            {activeSubTab === 'USERS' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                {!isAdmin ? (
+                  <div style={{ textAlign: 'center', padding: '2rem' }}>
+                    <ShieldAlert size={48} color="var(--danger)" style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                    <h3 style={{ color: 'var(--text-main)' }}>Access Restrict</h3>
+                    <p className="text-dim">You must be an administrator to manage users.</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Dashboard Users Section */}
+                    <section>
+                      <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-glow)' }}>
+                        <UserCheck size={20} /> Dashboard Users
+                      </h3>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem' }}>
+                        {/* Users List */}
+                        <div className="glass-panel" style={{ padding: '0', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+                            <thead style={{ background: 'rgba(255,255,255,0.03)' }}>
+                              <tr>
+                                <th style={{ padding: '1rem' }}>Username</th>
+                                <th style={{ padding: '1rem' }}>Role</th>
+                                <th style={{ padding: '1rem', textAlign: 'right' }}>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {dashboardUsers.map(u => (
+                                <tr key={u.username} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <td style={{ padding: '1rem' }}>{u.username}</td>
+                                  <td style={{ padding: '1rem' }}>
+                                    <span style={{ 
+                                      padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600,
+                                      background: u.role === 'admin' ? 'rgba(10, 191, 159, 0.2)' : 'rgba(255,255,255,0.1)',
+                                      color: u.role === 'admin' ? 'var(--accent-glow)' : 'var(--text-dim)'
+                                    }}>
+                                      {u.role.toUpperCase()}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                    <button onClick={() => handleDeleteDashUser(u.username)} style={{ background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
 
-                {showHelp && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)' }}>
-                    <p className="text-dim" style={{ fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>
-                       Inspeção e conexão de interfaces Wi-fi do Hardware. Identifique SSIDs ou force um escaneamento em tempo real do ambiente de rede ao redor do Nó.
-                    </p>
-                  </motion.div>
+                        {/* Create Dash User Form */}
+                        <form onSubmit={handleCreateDashUser} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Add New Panel User</h4>
+                          <input type="text" placeholder="Username" value={dashUsername} onChange={e => setDashUsername(e.target.value)} style={{ padding: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px' }} />
+                          <input type="password" placeholder="Password" value={dashPassword} onChange={e => setDashPassword(e.target.value)} style={{ padding: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px' }} />
+                          <select value={dashRole} onChange={e => setDashRole(e.target.value)} style={{ padding: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px' }}>
+                            <option value="viewer">Viewer (Read-only)</option>
+                            <option value="admin">Administrator (Full Control)</option>
+                          </select>
+                          <button type="submit" disabled={status === 'loading'} className="action-btn action-secondary" style={{ width: '100%' }}>
+                            <UserPlus size={18} /> Create Dashboard User
+                          </button>
+                        </form>
+                      </div>
+                    </section>
+
+                    {/* Linux Users Section */}
+                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '2rem' }}>
+                      <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-base)' }}>
+                        <Terminal size={20} /> Linux System Accounts
+                      </h3>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem' }}>
+                        <div className="text-dim" style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
+                          <p>Crie contas de sistema diretamente no nó. Esses usuários terão diretórios pessoais (`/home/user`) e acesso via SSH se o serviço estiver habilitado.</p>
+                          <p style={{ marginTop: '0.5rem' }}><strong>Nota:</strong> Novos usuários de sistema no Linux são criados por padrão como membros do grupo básico, sem privilégios sudo.</p>
+                        </div>
+                        <form onSubmit={handleCreateLinuxUser} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.9rem' }}>New Linux Account</h4>
+                          <input type="text" placeholder="System Username" value={linuxUsername} onChange={e => setLinuxUsername(e.target.value)} style={{ padding: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px' }} />
+                          <input type="password" placeholder="System Password" value={linuxPassword} onChange={e => setLinuxPassword(e.target.value)} style={{ padding: '0.8rem', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px' }} />
+                          <button type="submit" disabled={status === 'loading'} className="action-btn action-primary" style={{ width: '100%' }}>
+                            <Key size={18} /> Provision Linux User
+                          </button>
+                        </form>
+                      </div>
+                    </section>
+                  </>
                 )}
-                
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  <button onClick={() => runScript("halfin/tools/wifi_show.sh", "wifi_show.sh")} disabled={status === 'loading'} className="action-btn action-secondary">
-                    {status === 'loading' ? <Loader2 size={18} className="spin" /> : <Eye size={18} />}
-                    Mostrar Wi-Fi Atual
-                  </button>
-
-                  <button onClick={() => runScript("halfin/tools/wifi_scan.sh", "wifi_scan.sh")} disabled={status === 'loading'} className="action-btn action-secondary">
-                    {status === 'loading' ? <Loader2 size={18} className="spin" /> : <Search size={18} />}
-                    Scanear Redes Proximas
-                  </button>
-                </div>
-              </>
+              </div>
             )}
 
             {/* ------------ VIEW: DNS (PI-HOLE) ------------ */}
             {activeSubTab === 'DNS' && (
-              <>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0, fontSize: '1.2rem', color: 'var(--text-main)' }}>
-                    <Share2 size={22} color="var(--accent-glow)" /> Pi-hole v6 Console
-                  </h2>
-                </div>
-                <PiholeTab token={token} />
-              </>
+              <PiholeTab token={token} />
             )}
 
             {/* ------------ VIEW: PLACEHOLDERS ------------ */}
-            {['DOCKER', 'USERS', 'VPN'].includes(activeSubTab) && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', textAlign: 'center' }}>
+            {['WIFI', 'DOCKER', 'VPN'].includes(activeSubTab) && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
                 <Box size={32} color="var(--glass-border)" style={{ marginBottom: '1rem' }} />
-                <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-main)', fontSize: '1.2rem' }}>Módulo Não Parametrizado</h3>
+                <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-main)', fontSize: '1.2rem' }}>Module Under Parametrization</h3>
                 <p className="text-dim" style={{ maxWidth: '400px', lineHeight: 1.5, margin: 0 }}>
-                  A documentação para scripts de {activeSubTab} ainda não foi listada no painel principal ou nenhum script foi adicionado à Whitelist de Automadores desta Engine.
+                  This module is transitioning to user-agnostic hardware support. Check back soon.
                 </p>
               </div>
             )}
@@ -191,20 +347,15 @@ export default function ServicesTab({ token }) {
           borderRadius: '12px',
           padding: '1rem',
           minHeight: '220px',
-          maxHeight: '400px',
           display: 'flex',
           flexDirection: 'column'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-dim)', margin: 0, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-dim)', margin: 0, fontSize: '0.8rem', textTransform: 'uppercase' }}>
               <Terminal size={14}/> System Console
             </h4>
-            
-            {/* Status Indicator inside Terminal */}
              <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-               {status === 'loading' && <span style={{ color: 'var(--accent-glow)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Loader2 size={12} className="spin"/> Aguardando...</span>}
-               {status === 'success' && <span style={{ color: 'var(--success)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><CheckCircle size={12}/> Sucesso</span>}
-               {status === 'error' && <span style={{ color: 'var(--danger)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><AlertCircle size={12}/> Falhou</span>}
+               {status === 'loading' && <span style={{ color: 'var(--accent-glow)', fontSize: '0.8rem' }}><Loader2 size={12} className="spin"/> Busy</span>}
                <button onClick={() => {setLogs(''); setStatus('idle')}} style={{ background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-dim)', fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer' }}>Clear</button>
              </div>
           </div>
@@ -212,19 +363,16 @@ export default function ServicesTab({ token }) {
           <pre style={{
             margin: 0,
             whiteSpace: 'pre-wrap',
-            wordWrap: 'break-word',
-            color: '#1beaa2', /* Console Green */
-            fontFamily: '"Fira Code", "Courier New", Courier, monospace',
+            color: '#1beaa2', 
+            fontFamily: '"Fira Code", monospace',
             fontSize: '0.85rem',
             lineHeight: 1.6,
             overflowY: 'auto',
-            flex: 1,
-            paddingRight: '1rem'
+            flex: 1
           }}>
-            {logs || '> Ghost Nodes Supervisor Standby...\n> Selecione um script de uma Categoria para engatar...'}
+            {logs || '> Supervisor Standby...'}
           </pre>
       </div>
-
     </div>
   );
 }
