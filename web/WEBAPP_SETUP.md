@@ -1,101 +1,98 @@
 # Web App Setup Guide 🌐🚀
 
-This document provides a comprehensive step-by-step guide to installing, configuring, and running the GhostNodes Web Dashboard.
+This document provides a comprehensive guide to installing, configuring, and running the **GhostNodes Sovereign Dashboard**.
 
 ---
 
 ## 1. Prerequisites
 Before starting, ensure your system has the following dependencies:
-- **Python 3.14+** (Earlier versions 3.10+ may work but are not officially supported).
+- **Python 3.10+** (Recommended: 3.11+ for performance).
 - **Node.js 18+** & **npm**.
 - **Virtualenv** (for Python dependency isolation).
 - **Git** (for repository synchronization).
 
 ---
 
-## 2. Backend Installation (FastAPI)
+## 2. Fast Track (Production Deployment)
 
-1. **Navigate to the backend directory:**
-   ```bash
-   cd web/backend
-   ```
-2. **Create and activate a virtual environment:**
-   ```bash
-   python -m venv .venv
-   # Linux/macOS
-   source .venv/bin/activate
-   # Windows
-   .\.venv\Scripts\activate
-   ```
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. **Environment Configuration:**
-   Create a `.env` file (optional) to override default settings:
-   ```env
-   BITCOIN_RPC_URL=http://localhost:8332
-   BITCOIN_RPC_USER=satoshi
-   BITCOIN_RPC_PASS=changeme
-   JWT_SECRET=your_custom_secret_key
-   ```
-5. **Run the server:**
-   ```bash
-   python main.py
-   # Or using uvicorn directly:
-   uvicorn main:app --host 0.0.0.0 --port 8000
-   ```
-   *The API will be available at `http://localhost:8000`.*
+In the official GhostNodes environment (OrangePi Zero 3), the Web App is managed automatically by **NodeNation**.
+
+### Unified Architecture
+The dashboard now uses a **Unified Serving Architecture**:
+- **Backend:** FastAPI (Python)
+- **Frontend:** React (Vite)
+- **Port:** 80 (Standard HTTP)
+
+The backend directly serves the compiled frontend assets from the `web/frontend/dist` directory. This minimizes RAM usage and complexity.
+
+### Automated Management
+```bash
+# Start the dashboard service
+sudo ./nodenation --web-start
+
+# Stop the dashboard service
+sudo ./nodenation --web-stop
+
+# Check health and logs
+sudo ./nodenation --web-status
+```
 
 ---
 
-## 3. Frontend Installation (React)
+## 3. Manual Installation (Development)
 
+### A. Frontend Build
 1. **Navigate to the frontend directory:**
    ```bash
    cd web/frontend
    ```
-2. **Install Node dependencies:**
+2. **Install dependencies and build:**
    ```bash
    npm install
-   ```
-3. **Run in Development Mode:**
-   ```bash
-   npm run dev
-   ```
-   *The dashboard will be available at `http://localhost:3000` (or 3001 if 3000 is occupied).*
-
-4. **Production Build (Optional):**
-   To generate a static bundle for deployment:
-   ```bash
    npm run build
+   ```
+   *This creates the `dist` folder used by the backend.*
+
+### B. Backend Setup
+1. **Navigate to the backend directory:**
+   ```bash
+   cd web/backend
+   ```
+2. **Setup virtual environment:**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # Windows: .\.venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+3. **Run the server:**
+   ```bash
+   # Note: Binding to Port 80 requires sudo/Admin privileges
+   sudo .venv/bin/python main.py
    ```
 
 ---
 
-## 4. Production Deployment (OrangePi Zero 3)
+## 4. Hardware Agnostic Execution
 
-In the official GhostNodes environment, the Web App is managed by **NodeNation**.
+### Linux (Systemd)
+The installation script `halfin/extras/webapp.sh` automatically configures the `ghostnodes-web.service`.
 
-### Automated Start
-```bash
-./nodenation web-start
+### Windows (PowerShell)
+For local testing on Windows, use the provided script:
+```powershell
+# Open PowerShell as Administrator
+cd web
+.\start.ps1
 ```
-
-### Systemd Integration (Recommended)
-GhostNodes uses a systemd service to ensure the dashboard starts on boot.
-- Service Name: `ghostnodes-web.service`
-- Path: `/etc/systemd/system/`
 
 ---
 
 ## 5. Troubleshooting / FAQ
 
-- **Backend fails to detect temperature:** Ensure your user has read access to `/sys/class/thermal/`.
-- **Bitcoin Node shows offline:** Check if `bitcoind` is running and the RPC credentials in `bitcoin.py` match your `bitcoin.conf`.
-- **401 Unauthorized:** Your login session has expired. Log out and log in again to refresh the JWT token.
-- **Port 8000 already in use:** You can change the port in `web/backend/main.py`.
+- **Port 80 already in use:** Use `sudo netstat -tulanp | grep :80` to identify the conflicting service. (Usually Nginx or Apache).
+- **Static Files Not Found:** Ensure you have run `npm run build` in the `web/frontend` directory before starting the backend.
+- **Permission Denied:** Most system operations (like reading CPU temp or binding to port 80) require `sudo`.
+- **Heimdall Conflict:** If you had Heimdall running on port 80, it has been moved to **Port 8080** by the GhostNodes installer.
 
 ---
 *GhostNodes - Sovereignty through Technology.*
-*Português: Este guia cobre a instalação do servidor web e interface. Para automação total, use o script `./nodenation`.*

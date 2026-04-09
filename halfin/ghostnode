@@ -34,29 +34,29 @@ show_help() {
     echo "  ghostnode — Ghost Node Nation Control Center"
     printf "${RESET}"
     echo ""
-    printf "  ${BOLD}USO:${RESET}\n"
-    printf "    ${CYAN}ghostnode${RESET}           Abre o menu interativo principal\n"
-    printf "    ${CYAN}ghostnode --help${RESET}    Exibe esta ajuda\n"
+    printf "  ${BOLD}USAGE:${RESET}\n"
+    printf "    ${CYAN}ghostnode${RESET}           Open regular interactive menu\n"
+    printf "    ${CYAN}ghostnode --help${RESET}    Display this help message\n"
     echo ""
-    printf "  ${BOLD}MENU PRINCIPAL:${RESET}\n"
-    printf "    ${BOLD}1${RESET}  Sistema         — Verificação, instalações, configurações e atualizações\n"
-    printf "    ${BOLD}2${RESET}  Rede            — Status Wi-Fi, conexão e diagnóstico de interfaces\n"
-    printf "    ${BOLD}3${RESET}  Docker          — Verificação, instalação e configuração de containers\n"
-    printf "    ${BOLD}4${RESET}  Reiniciar       — Reinicia o node com confirmação\n"
-    printf "    ${BOLD}5${RESET}  Desligar        — Desliga o node com confirmação\n"
+    printf "  ${BOLD}MAIN MENU:${RESET}\n"
+    printf "    ${BOLD}1${RESET}  System         — Health, installations, config and updates\n"
+    printf "    ${BOLD}2${RESET}  Network        — Wi-Fi status, connection and diagnostics\n"
+    printf "    ${BOLD}3${RESET}  Docker         — Containers management and setup\n"
+    printf "    ${BOLD}4${RESET}  Reboot         — Restart the node safely\n"
+    printf "    ${BOLD}5${RESET}  Power Off      — Shutdown the node safely\n"
     echo ""
-    printf "  ${BOLD}DIRETÓRIOS:${RESET}\n"
+    printf "  ${BOLD}DIRECTORIES:${RESET}\n"
     printf "    Base     ${DIM}%s${RESET}\n" "$HALFIN_DIR"
     printf "    Tools    ${DIM}%s${RESET}\n" "$TOOLS_DIR"
     printf "    Docker   ${DIM}%s${RESET}\n" "$DOCKER_DIR"
     printf "    Logs     ${DIM}%s${RESET}\n" "$LOG_DIR"
     echo ""
-    printf "  ${BOLD}SCRIPTS UTILIZADOS:${RESET}\n"
-    printf "    ${DIM}tools/system.sh         —${RESET} Dados do sistema em tempo real\n"
-    printf "    ${DIM}tools/wifi_scan.sh      —${RESET} Escaneamento de redes Wi-Fi\n"
-    printf "    ${DIM}tools/wifi_show.sh      —${RESET} Exibição do banco de redes\n"
-    printf "    ${DIM}tools/wifi_connect.sh   —${RESET} Conexão interativa a redes\n"
-    printf "    ${DIM}docker/docker.sh        —${RESET} Setup do ambiente Docker\n"
+    printf "  ${BOLD}INTERNAL TOOLS:${RESET}\n"
+    printf "    ${DIM}tools/system.sh         —${RESET} Real-time system data\n"
+    printf "    ${DIM}tools/wifi_scan.sh      —${RESET} WiFi network scanning\n"
+    printf "    ${DIM}tools/wifi_show.sh      —${RESET} Network database view\n"
+    printf "    ${DIM}tools/wifi_connect.sh   —${RESET} Interactive connection\n"
+    printf "    ${DIM}docker/docker.sh        —${RESET} Docker environment setup\n"
     echo ""
     printf "  ${DIM}Ghost Node Nation — Halfin v0.3${RESET}\n"
     echo ""
@@ -129,15 +129,15 @@ run_script() {
 menu_sistema() {
     while true; do
         banner
-        section "1 — Sistema"
+        section "1 — System"
         echo ""
-        printf "  ${BOLD}[1.1]${RESET}  Verificação do Sistema\n"
-        printf "  ${BOLD}[1.2]${RESET}  Instalações e Status dos Serviços\n"
-        printf "  ${BOLD}[1.3]${RESET}  Configurações e Correções\n"
-        printf "  ${BOLD}[1.4]${RESET}  Atualizações\n"
+        printf "  ${BOLD}[1.1]${RESET}  System Audit\n"
+        printf "  ${BOLD}[1.2]${RESET}  Installation & Service Status\n"
+        printf "  ${BOLD}[1.3]${RESET}  Config & Fixes\n"
+        printf "  ${BOLD}[1.4]${RESET}  Updates\n"
         echo ""
         sep
-        printf "  ${BOLD}[0]${RESET}   Voltar\n"
+        printf "  ${BOLD}[0]${RESET}   Back\n"
         sep
         echo ""
         printf "  Opção: "
@@ -391,14 +391,14 @@ menu_sistema_atualizacoes() {
 menu_rede() {
     while true; do
         banner
-        section "2 — Conexões de Rede"
+        section "2 — Network Connections"
         echo ""
-        printf "  ${BOLD}[2.1]${RESET}  Status Wi-Fi (scan + show)\n"
-        printf "  ${BOLD}[2.2]${RESET}  Conectar Wi-Fi\n"
-        printf "  ${BOLD}[2.3]${RESET}  Verificação e Diagnóstico de Interfaces\n"
+        printf "  ${BOLD}[2.1]${RESET}  Wi-Fi Status (scan + show)\n"
+        printf "  ${BOLD}[2.2]${RESET}  Connect to Wi-Fi\n"
+        printf "  ${BOLD}[2.3]${RESET}  Interface Verification & Diagnosis\n"
         echo ""
         sep
-        printf "  ${BOLD}[0]${RESET}   Voltar\n"
+        printf "  ${BOLD}[0]${RESET}   Back\n"
         sep
         echo ""
         printf "  Opção: "
@@ -554,12 +554,12 @@ menu_docker() {
         banner
         section "3 — Docker"
         echo ""
-        printf "  ${BOLD}[3.1]${RESET}  Verificação e Testes\n"
-        printf "  ${BOLD}[3.2]${RESET}  Instalação do Ambiente Docker\n"
-        printf "  ${BOLD}[3.3]${RESET}  Configurações (.env e containers)\n"
+        printf "  ${BOLD}[3.1]${RESET}  Verification & Testing\n"
+        printf "  ${BOLD}[3.2]${RESET}  Docker Environment Installation\n"
+        printf "  ${BOLD}[3.3]${RESET}  Configurations (.env and containers)\n"
         echo ""
         sep
-        printf "  ${BOLD}[0]${RESET}   Voltar\n"
+        printf "  ${BOLD}[0]${RESET}   Back\n"
         sep
         echo ""
         printf "  Opção: "
@@ -752,17 +752,17 @@ menu_docker_configuracoes() {
 
 acao_reiniciar() {
     banner
-    section "4 — Reiniciar o Node"
+    section "4 — Reboot Node"
     echo ""
-    printf "  ${YELLOW}${BOLD}Esta ação irá reiniciar o sistema imediatamente.${RESET}\n"
+    printf "  ${YELLOW}${BOLD}This action will reboot the system immediately.${RESET}\n"
     echo ""
-    if confirm "Confirma o reinício do node?" "n"; then
-        log_msg "WARN" "Sistema reiniciado pelo operador via ghostnode"
-        step_info "Reiniciando..."
+    if confirm "Confirm node reboot?" "n"; then
+        log_msg "WARN" "System rebooted by operator via ghostnode"
+        step_info "Rebooting..."
         sleep 1
         reboot
     else
-        step_info "Operação cancelada"
+        step_info "Operation cancelled"
         sleep 1
     fi
 }
@@ -773,18 +773,18 @@ acao_reiniciar() {
 
 acao_desligar() {
     banner
-    section "5 — Desligar o Node"
+    section "5 — Shutdown Node"
     echo ""
-    printf "  ${RED}${BOLD}Esta ação irá desligar o sistema.${RESET}\n"
-    printf "  ${DIM}Certifique-se de que nenhum processo crítico está em andamento.${RESET}\n"
+    printf "  ${RED}${BOLD}This action will shut down the system.${RESET}\n"
+    printf "  ${DIM}Ensure no critical processes are running.${RESET}\n"
     echo ""
-    if confirm "Confirma o desligamento do node?" "n"; then
-        log_msg "WARN" "Sistema desligado pelo operador via ghostnode"
-        step_info "Desligando..."
+    if confirm "Confirm node shutdown?" "n"; then
+        log_msg "WARN" "System shutdown by operator via ghostnode"
+        step_info "Shutting down..."
         sleep 1
         poweroff
     else
-        step_info "Operação cancelada"
+        step_info "Operation cancelled"
         sleep 1
     fi
 }
@@ -797,7 +797,7 @@ menu_principal() {
     while true; do
         banner
 
-        # ── Linha de status rápido ────────────────────────────────────────────
+        # ── Quick Status Line ─────────────────────────────────────────────────
         HOSTNAME_NOW=$(hostname 2>/dev/null || echo "—")
         UPTIME_NOW=$(uptime -p 2>/dev/null | sed 's/up //' || echo "—")
         USER_NOW="${SUDO_USER:-$(whoami)}"
@@ -805,23 +805,23 @@ menu_principal() {
                "$HOSTNAME_NOW" "$UPTIME_NOW" "$USER_NOW"
 
         sep
-        printf "  ${BOLD}${WHITE}Menu Principal${RESET}\n"
+        printf "  ${BOLD}${WHITE}Main Menu${RESET}\n"
         sep
         echo ""
-        printf "  ${BOLD}${CYAN}[1]${RESET}  ${BOLD}Sistema${RESET}              ${DIM}Verificação, serviços, configurações e atualizações${RESET}\n"
-        printf "  ${BOLD}${CYAN}[2]${RESET}  ${BOLD}Conexões de Rede${RESET}     ${DIM}Status Wi-Fi, conexão e diagnóstico de interfaces${RESET}\n"
-        printf "  ${BOLD}${CYAN}[3]${RESET}  ${BOLD}Docker${RESET}               ${DIM}Verificação, instalação e configuração de containers${RESET}\n"
+        printf "  ${BOLD}${CYAN}[1]${RESET}  ${BOLD}System${RESET}              ${DIM}Health audit, services, config and updates${RESET}\n"
+        printf "  ${BOLD}${CYAN}[2]${RESET}  ${BOLD}Network Connection${RESET}     ${DIM}Wi-Fi status, connection and diagnostics${RESET}\n"
+        printf "  ${BOLD}${CYAN}[3]${RESET}  ${BOLD}Docker${RESET}               ${DIM}Containers management, setup and config${RESET}\n"
         echo ""
         sep_thin
         echo ""
-        printf "  ${BOLD}${YELLOW}[4]${RESET}  ${BOLD}Reiniciar o Node${RESET}     ${DIM}Reinicia o sistema com confirmação${RESET}\n"
-        printf "  ${BOLD}${RED}[5]${RESET}  ${BOLD}Desligar o Node${RESET}      ${DIM}Desliga o sistema com confirmação${RESET}\n"
+        printf "  ${BOLD}${YELLOW}[4]${RESET}  ${BOLD}Reboot Node${RESET}          ${DIM}Restart the system with confirmation${RESET}\n"
+        printf "  ${BOLD}${RED}[5]${RESET}  ${BOLD}Power Off Node${RESET}       ${DIM}Shutdown the system with confirmation${RESET}\n"
         echo ""
         sep
-        printf "  ${BOLD}[q]${RESET}  Sair\n"
+        printf "  ${BOLD}[q]${RESET}  Quit\n"
         sep
         echo ""
-        printf "  ${BOLD}Opção:${RESET} "
+        printf "  ${BOLD}Option:${RESET} "
         read -r OPT
 
         case "$OPT" in
@@ -830,9 +830,9 @@ menu_principal() {
             3) menu_docker ;;
             4) acao_reiniciar ;;
             5) acao_desligar ;;
-            q|Q|0) printf "\n  ${DIM}Saindo do ghostnode...${RESET}\n\n"; exit 0 ;;
-            "") : ;;  # ENTER sem input recarrega o menu
-            *)  step_warn "Opção inválida"; sleep 1 ;;
+            q|Q|0) printf "\n  ${DIM}Exiting ghostnode...${RESET}\n\n"; exit 0 ;;
+            "") : ;;
+            *)  step_warn "Invalid option"; sleep 1 ;;
         esac
     done
 }

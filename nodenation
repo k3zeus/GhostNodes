@@ -38,7 +38,8 @@ set -euo pipefail
 GN_PROJECT_NAME="Ghost Nodes - NodeNation"
 GN_USER="${GN_USER:-pleb}"
 GN_USER_HOME="/home/${GN_USER}"
-GN_ROOT="${GN_ROOT:-${GN_USER_HOME}/nodenation}"  # destino FINAL (só existe após pre_install)
+GN_ROOT="${GN_ROOT:-${GN_USER_HOME}/nodenation}"
+WEB_SERVICE="ghostnodes-web.service"
 
 # Staging em /tmp — usado ANTES do usuário existir
 GN_TMP_DIR="/tmp/ghostnodes_staging"               # projeto descompactado aqui
@@ -135,14 +136,14 @@ banner_root() {
     echo "  ║      ██║╚██╗██║██║   ██║██║  ██║██╔══╝  ╚════██║             ║"
     echo "  ║      ██║ ╚████║╚██████╔╝██████╔╝███████╗███████║             ║"
     echo "  ║      ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝             ║"
-    echo "  ║                                                              ║"
+    echo "  ╚══════════════════════════════════════════════════════════════╝"
     printf "  ║  ${RESET}${WHITE}${BOLD}  Ghost Nodes · NodeNation${RESET}${BOLD}${CYAN}                                ║\n"
-    echo "  ║                                                              ║"
+    echo "  ║      Sovereignty Dashboard - OrangePi Zero 3                 ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     printf "${RESET}\n"
 
     # Status bar
-    local TEMP="N/A" DATETIME; DATETIME=$(date '+%d/%m/%Y  %H:%M:%S')
+    local TEMP="N/A" DATETIME; DATETIME=$(date '+%Y-%m-%d  %H:%M:%S')
     for TF in /sys/class/thermal/thermal_zone0/temp \
                /sys/devices/virtual/thermal/thermal_zone0/temp; do
         [ -f "$TF" ] && {
@@ -164,11 +165,13 @@ show_help() {
     banner_root
     section "Ajuda — ${GN_PROJECT_NAME}"
     echo ""
-    printf "  ${BOLD}USO:${RESET}\n"
-    printf "    ${CYAN}sudo bash nodenation${RESET}               Menu interativo\n"
-    printf "    ${CYAN}sudo bash nodenation --help${RESET}         Esta ajuda\n"
-    printf "    ${CYAN}sudo bash nodenation --download-only${RESET} Baixa e prepara em /tmp\n"
-    printf "    ${CYAN}sudo bash nodenation --detect-hw${RESET}    Detecta hardware e sai\n"
+    printf "  ${BOLD}USAGE:${RESET}\n"
+    printf "    ${CYAN}sudo bash nodenation${RESET}               Interactive Menu\n"
+    printf "    ${CYAN}sudo bash nodenation --help${RESET}         This help message\n"
+    printf "    ${CYAN}sudo bash nodenation --web-start${RESET}    Start Dashboard service\n"
+    printf "    ${CYAN}sudo bash nodenation --web-stop${RESET}     Stop Dashboard service\n"
+    printf "    ${CYAN}sudo bash nodenation --web-status${RESET}   Dashboard health check\n"
+    printf "    ${CYAN}sudo bash nodenation --detect-hw${RESET}    Detect hardware and exit\n"
     echo ""
     printf "  ${BOLD}SUBPROJETOS:${RESET}\n\n"
     printf "  ${CYAN}[1]${RESET} ${BOLD}Halfin Node${RESET}    AP/Roteador — OrangePi Zero 3 — arm64\n"
@@ -537,11 +540,11 @@ launch_subproject() {
 
         # Hardware
         printf "  ${BOLD}Hardware:${RESET}\n"
-        printf "  ${BULLET} Modelo : ${BOLD}%s${RESET}\n" "${GN_HW_MODEL:-—}"
-        printf "  ${BULLET} Arch   : ${BOLD}%s${RESET}\n" "${GN_HW_ARCH:-—}"
-        printf "  ${BULLET} RAM    : ${BOLD}%s GB${RESET}\n" "${GN_HW_RAM_GB:-—}"
-        printf "  ${BULLET} Disco  : ${BOLD}%s GB${RESET}\n" "${GN_HW_DISK_GB:-—}"
-        printf "  ${BULLET} SO     : ${BOLD}%s${RESET}\n" "${GN_HW_OS:-—}"
+        printf "  ${BULLET} Model : ${BOLD}%s${RESET}\n" "${GN_HW_MODEL:-—}"
+        printf "  ${BULLET} Arch  : ${BOLD}%s${RESET}\n" "${GN_HW_ARCH:-—}"
+        printf "  ${BULLET} RAM   : ${BOLD}%s GB${RESET}\n" "${GN_HW_RAM_GB:-—}"
+        printf "  ${BULLET} Disk  : ${BOLD}%s GB${RESET}\n" "${GN_HW_DISK_GB:-—}"
+        printf "  ${BULLET} OS    : ${BOLD}%s${RESET}\n" "${GN_HW_OS:-—}"
         echo ""
 
         # Compatibilidade
@@ -564,25 +567,22 @@ launch_subproject() {
         sep
 
         # Verifica se há pré-configuração disponível
-        local HAS_PRE=0
-        check_preinstall_exists "$PROJECT" && HAS_PRE=1 || true
-
-        printf "\n  ${BOLD}${WHITE}Opções de Instalação:${RESET}\n\n"
+        printf "\n  ${BOLD}${WHITE}Installation Options:${RESET}\n\n"
 
         if [ "$HAS_PRE" -eq 1 ]; then
-            printf "  ${BOLD}${GREEN}[1]${RESET}  ${BOLD}Instalação Automatizada${RESET}  ${GREEN}◈ Recomendado${RESET}\n"
-            printf "      ${DIM}Pré-configuração encontrada para este hardware:${RESET}\n"
+            printf "  ${BOLD}${GREEN}[1]${RESET}  ${BOLD}Automated Installation${RESET}  ${GREEN}◈ Recommended${RESET}\n"
+            printf "      ${DIM}Pre-configuration found for this hardware:${RESET}\n"
             printf "      ${DIM}%s${RESET}\n" "$_GN_FOUND_DESC"
             printf "      ${DIM}Script: %s${RESET}\n\n" "${_GN_FOUND_SCRIPT##*/tmp/ghostnodes_staging/}"
         else
-            printf "  ${DIM}[1]  Instalação Automatizada — ${YELLOW}não disponível para este hardware${RESET}\n\n"
+            printf "  ${DIM}[1]  Automated Installation — ${YELLOW}not available for this hardware${RESET}\n\n"
         fi
 
-        printf "  ${BOLD}${CYAN}[2]${RESET}  Configuração Manual\n"
-        printf "      ${DIM}Criar usuário, sourcelist, rede, ferramentas manualmente${RESET}\n"
+        printf "  ${BOLD}${CYAN}[2]${RESET}  Manual Configuration\n"
+        printf "      ${DIM}Create user, sourcelist, network, tools manually${RESET}\n"
         echo ""
         sep
-        printf "  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
+        printf "  ${BOLD}[0]${RESET}  Back  ${BOLD}[q]${RESET}  Quit\n"
         sep
 
         OPT=$(_menu_read)
@@ -899,35 +899,35 @@ menu_principal() {
         [ -d "$GN_ROOT" ]    && [ -f "${GN_ROOT}/halfin/lib/init.sh" ]    && ROOT_OK=1
 
         if [ "$ROOT_OK" -eq 1 ]; then
-            printf "  ${GREEN}${BOLD}✔ Projeto instalado:${RESET} ${GN_ROOT}\n\n"
+            printf "  ${GREEN}${BOLD}✔ Project installed:${RESET} ${GN_ROOT}\n\n"
         elif [ "$STAGING_OK" -eq 1 ]; then
-            printf "  ${YELLOW}⟳ Projeto em staging:${RESET} ${GN_TMP_DIR}\n"
-            printf "  ${DIM}  (aguardando criação do usuário para instalar definitivamente)${RESET}\n\n"
+            printf "  ${YELLOW}⟳ Project in staging:${RESET} ${GN_TMP_DIR}\n"
+            printf "  ${DIM}  (awaiting user creation for final installation)${RESET}\n\n"
         else
-            printf "  ${RED}✘ Projeto não baixado.${RESET} Use ${BOLD}[d]${RESET} para baixar.\n\n"
+            printf "  ${RED}✘ Project not downloaded.${RESET} Use ${BOLD}[d]${RESET} to download.\n\n"
         fi
 
         sep
-        printf "  ${BOLD}${WHITE}Subprojetos:${RESET}\n"
+        printf "  ${BOLD}${WHITE}Subprojects:${RESET}\n"
         sep_thin
         echo ""
-        printf "  ${BOLD}${CYAN}[1]${RESET}  ${BOLD}Halfin Node${RESET}     ${GREEN}◈${RESET}  ${DIM}AP/Roteador — OrangePi Zero 3 — arm64${RESET}\n"
+        printf "  ${BOLD}${CYAN}[1]${RESET}  ${BOLD}Halfin Node${RESET}     ${GREEN}◈${RESET}  ${DIM}AP/Router — OrangePi Zero 3 — arm64${RESET}\n"
         printf "  ${BOLD}${CYAN}[2]${RESET}  ${BOLD}Satoshi Node${RESET}    ${YELLOW}₿${RESET}  ${DIM}Bitcoin Full/Pruned — arm64/x86_64${RESET}\n"
-        printf "  ${BOLD}${CYAN}[3]${RESET}  ${BOLD}Nick Node${RESET}       ${DIM}…  Em breve${RESET}\n"
-        printf "  ${BOLD}${CYAN}[4]${RESET}  ${BOLD}Adam Node${RESET}       ${DIM}…  Em breve${RESET}\n"
-        printf "  ${BOLD}${CYAN}[5]${RESET}  ${BOLD}Fiatjaf Node${RESET}    ${DIM}…  Em breve${RESET}\n"
-        printf "  ${BOLD}${CYAN}[6]${RESET}  ${BOLD}Nash Node${RESET}       ${DIM}…  Em breve${RESET}\n"
-        printf "  ${BOLD}${CYAN}[7]${RESET}  ${BOLD}Craig Node${RESET}      ${DIM}…  Em breve${RESET}\n"
+        printf "  ${BOLD}${CYAN}[3]${RESET}  ${BOLD}Nick Node${RESET}       ${DIM}…  Coming Soon${RESET}\n"
+        printf "  ${BOLD}${CYAN}[4]${RESET}  ${BOLD}Adam Node${RESET}       ${DIM}…  Coming Soon${RESET}\n"
+        printf "  ${BOLD}${CYAN}[5]${RESET}  ${BOLD}Fiatjaf Node${RESET}    ${DIM}…  Coming Soon${RESET}\n"
+        printf "  ${BOLD}${CYAN}[6]${RESET}  ${BOLD}Nash Node${RESET}       ${DIM}…  Coming Soon${RESET}\n"
+        printf "  ${BOLD}${CYAN}[7]${RESET}  ${BOLD}Craig Node${RESET}      ${DIM}…  Coming Soon${RESET}\n"
         echo ""
         sep_thin
         echo ""
-        printf "  ${BOLD}[d]${RESET}  Baixar / Atualizar projeto\n"
-        printf "  ${BOLD}[h]${RESET}  Detectar Hardware\n"
-        printf "  ${BOLD}[c]${RESET}  Configuração Manual do Sistema\n"
-        printf "  ${BOLD}[?]${RESET}  Ajuda\n"
+        printf "  ${BOLD}[d]${RESET}  Download / Update project\n"
+        printf "  ${BOLD}[h]${RESET}  Detect Hardware\n"
+        printf "  ${BOLD}[c]${RESET}  Manual System Configuration\n"
+        printf "  ${BOLD}[?]${RESET}  Help\n"
         echo ""
         sep
-        printf "  ${BOLD}[q]${RESET}  Sair\n"
+        printf "  ${BOLD}[q]${RESET}  Quit\n"
         sep
 
         OPT=$(_menu_read)
@@ -935,16 +935,12 @@ menu_principal() {
         case "$OPT" in
             1) launch_subproject "halfin"  "Halfin Node" ;;
             2) menu_satoshi ;;
-            3) menu_coming_soon "Nick Node" ;;
-            4) menu_coming_soon "Adam Node" ;;
-            5) menu_coming_soon "Fiatjaf Node" ;;
-            6) menu_coming_soon "Nash Node" ;;
-            7) menu_coming_soon "Craig Node" ;;
+            3|4|5|6|7) menu_coming_soon "Subproject" ;;
             d|D) download_project; press_enter_or_back ;;
             h|H) detect_hardware; press_enter_or_back ;;
             c|C) menu_config_manual ;;
             "?") show_help ;;
-            0|"") : ;;  # ENTER recarrega o menu
+            0|"") : ;;
         esac
     done
 }
@@ -980,6 +976,22 @@ case "${1:-}" in
         ;;
     --detect-hw)
         detect_hardware
+        exit 0
+        ;;
+    --web-start)
+        echo "🚀 Starting GhostNodes Dashboard service..."
+        sudo systemctl start "$WEB_SERVICE" || true
+        sudo systemctl status "$WEB_SERVICE"
+        exit 0
+        ;;
+    --web-stop)
+        echo "🛑 Stopping GhostNodes Dashboard service..."
+        sudo systemctl stop "$WEB_SERVICE" || true
+        exit 0
+        ;;
+    --web-status)
+        echo "🔍 Checking Dashboard status..."
+        sudo systemctl status "$WEB_SERVICE"
         exit 0
         ;;
     *)

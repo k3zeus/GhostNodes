@@ -464,10 +464,6 @@ etapa_orange3() {
 # ══════════════════════════════════════════════════════════════════════════════
 # ETAPA 9 — Scripts extras
 # ══════════════════════════════════════════════════════════════════════════════
-etapa_extras() {
-    section "📦  Etapa 9 — Serviços Extras"
-    echo ""
-
     _run_extra "${HALFIN_DIR}/extras/fail2ban.sh"  "Fail2ban"
     echo ""
     _run_extra "${HALFIN_DIR}/extras/pi-hole.sh"   "Pi-hole + Unbound"
@@ -477,6 +473,16 @@ etapa_extras() {
     _run_extra "${HALFIN_DIR}/routing.sh"          "Routing / iptables"
 
     _state_set "etapa_extras" "1"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 9.1 — GhostNodes Sovereign Dashboard
+# ══════════════════════════════════════════════════════════════════════════════
+etapa_dashboard() {
+    section "🌐  Step 9.1 — Sovereign Dashboard"
+    echo ""
+    _run_extra "${HALFIN_DIR}/extras/webapp.sh" "Dashboard UI + API"
+    _state_set "etapa_dashboard" "1"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -601,33 +607,34 @@ main() {
     done
     [ -n "$SKIP" ] && { step_info "Já concluídas (pular): ${SKIP}"; echo ""; }
 
-    # Executa etapas — pula as já concluídas
+    # Run steps — skip already completed ones
     [ "$(_state_get etapa_usuario)" != "1" ]       && etapa_usuario
     [ "$(_state_get etapa_sourcelist)" != "1" ]    && etapa_sourcelist
     [ "$(_state_get etapa_remove_docker)" != "1" ] && etapa_remove_docker
     [ "$(_state_get etapa_hostname)" != "1" ]      && etapa_hostname
     [ "$(_state_get etapa_update)" != "1" ]        && etapa_update
     [ "$(_state_get etapa_ferramentas)" != "1" ]   && etapa_ferramentas
-    etapa_alias_wifi        # sempre verifica
+    etapa_alias_wifi        # always verify
     [ "$(_state_get etapa_orange3)" != "1" ]       && etapa_orange3
     [ "$(_state_get etapa_extras)" != "1" ]        && etapa_extras
+    [ "$(_state_get etapa_dashboard)" != "1" ]     && etapa_dashboard
     [ "$(_state_get etapa_aliases)" != "1" ]       && etapa_aliases
-    etapa_remove_legado     # penúltimo
-    etapa_chown             # último
+    etapa_remove_legado     # penultimate
+    etapa_chown             # last
 
     echo ""
     printf "${BOLD}${GREEN}"
     echo "  ╔══════════════════════════════════════════════════════════════╗"
-    echo "  ║           ✔  Instalação Concluída!                          ║"
+    echo "  ║           ✔  Installation Complete!                         ║"
     echo "  ╠══════════════════════════════════════════════════════════════╣"
-    printf "  ║  ${RESET}${DIM}  Usuário : %-50s${RESET}${BOLD}${GREEN}║\n" "${GN_USER}  (senha: ${GN_DEFAULT_PASSWORD})"
-    printf "  ║  ${RESET}${DIM}  Hostname: %-50s${RESET}${BOLD}${GREEN}║\n" "${GN_HOSTNAME}"
-    printf "  ║  ${RESET}${DIM}  SSID    : %-50s${RESET}${BOLD}${GREEN}║\n" "${SSID}"
-    printf "  ║  ${RESET}${DIM}  Projeto : %-50s${RESET}${BOLD}${GREEN}║\n" "${GN_ROOT}"
+    printf "  ║  ${RESET}${DIM}  User      : %-50s${RESET}${BOLD}${GREEN}║\n" "${GN_USER}  (pass: ${GN_DEFAULT_PASSWORD})"
+    printf "  ║  ${RESET}${DIM}  Hostname  : %-50s${RESET}${BOLD}${GREEN}║\n" "${GN_HOSTNAME}"
+    printf "  ║  ${RESET}${DIM}  SSID      : %-50s${RESET}${BOLD}${GREEN}║\n" "${SSID}"
+    printf "  ║  ${RESET}${DIM}  Dashboard : %-50s${RESET}${BOLD}${GREEN}║\n" "http://${GN_HOSTNAME}.local"
     echo "  ╠══════════════════════════════════════════════════════════════╣"
-    printf "  ║  ${RESET}${YELLOW}${BOLD}  ⚠  Altere a senha: passwd${RESET}${BOLD}${GREEN}                                ║\n"
-    echo "  ║     Execute: source ~/.bashrc                                ║"
-    echo "  ║     Execute: ghostnode                                       ║"
+    printf "  ║  ${RESET}${YELLOW}${BOLD}  ⚠  Change your password: passwd${RESET}${BOLD}${GREEN}                        ║\n"
+    echo "  ║     Run: source ~/.bashrc                                    ║"
+    echo "  ║     Run: ghostnode                                           ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     printf "${RESET}\n"
 }
