@@ -1,8 +1,8 @@
 #!/bin/bash
 # ╔══════════════════════════════════════════════════════════════╗
-# ║  halfin/pre_install.sh — Pré-Instalação Completa           ║
-# ║  Hardware: OrangePi Zero 3 — Debian Bookworm arm64         ║
-# ║  Ghost Nodes - NodeNation  v0.14                           ║
+# ║  halfin/pre_install.sh — Pré-Instalação Completa             ║
+# ║  Hardware: OrangePi Zero 3 — Debian Bookworm arm64           ║
+# ║  Ghost Nodes - NodeNation  v0.14                             ║
 # ╚══════════════════════════════════════════════════════════════╝
 #
 # Ordem de execução:
@@ -578,8 +578,8 @@ main() {
     clear
     printf "${BOLD}${CYAN}"
     echo "  ╔══════════════════════════════════════════════════════════════╗"
-    echo "  ║  Ghost Nodes - NodeNation                                  ║"
-    echo "  ║  Pre-Install — Halfin Node / OrangePi Zero 3              ║"
+    echo "  ║  Ghost Nodes - NodeNation                                    ║"
+    echo "  ║  Pre-Install — Halfin Node / OrangePi Zero 3                 ║"
     printf "  ║  %-60s║\n" "  v0.14 — $(date '+%d/%m/%Y')"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     printf "${RESET}\n"
@@ -618,7 +618,7 @@ main() {
     echo ""
     printf "${BOLD}${GREEN}"
     echo "  ╔══════════════════════════════════════════════════════════════╗"
-    echo "  ║           ✔  Instalação Concluída!                         ║"
+    echo "  ║           ✔  Instalação Concluída!                          ║"
     echo "  ╠══════════════════════════════════════════════════════════════╣"
     printf "  ║  ${RESET}${DIM}  Usuário : %-50s${RESET}${BOLD}${GREEN}║\n" "${GN_USER}  (senha: ${GN_DEFAULT_PASSWORD})"
     printf "  ║  ${RESET}${DIM}  Hostname: %-50s${RESET}${BOLD}${GREEN}║\n" "${GN_HOSTNAME}"
@@ -626,8 +626,8 @@ main() {
     printf "  ║  ${RESET}${DIM}  Projeto : %-50s${RESET}${BOLD}${GREEN}║\n" "${GN_ROOT}"
     echo "  ╠══════════════════════════════════════════════════════════════╣"
     printf "  ║  ${RESET}${YELLOW}${BOLD}  ⚠  Altere a senha: passwd${RESET}${BOLD}${GREEN}                                ║\n"
-    echo "  ║     Execute: source ~/.bashrc                               ║"
-    echo "  ║     Execute: ghostnode                                      ║"
+    echo "  ║     Execute: source ~/.bashrc                                ║"
+    echo "  ║     Execute: ghostnode                                       ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     printf "${RESET}\n"
 }
