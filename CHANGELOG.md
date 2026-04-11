@@ -2,6 +2,13 @@
 
 All notable changes to the GhostNodes Sovereign Dashboard will be documented in this file.
 
+## [1.2.0] - 2026-04-10
+### Added
+- **Unified Web Dashboard:** Full integration of FastAPI backend and React frontend.
+- **Sovereign UI (V13.0):** Enhanced visuals with cyan/dev-green color schemes and premium glassmorphism.
+- **NodeNation Integration:** The dashboard is now the primary entry point for node orchestration.
+- **RBAC Auth:** Refined role-based access control for system safety.
+
 ## [1.1.0] - 2026-04-09
 ### Added
 - **Power Management System:** Integrated icon-based power menu with Reboot and Halt functions.
