@@ -464,6 +464,9 @@ etapa_orange3() {
 # ══════════════════════════════════════════════════════════════════════════════
 # ETAPA 9 — Scripts extras
 # ══════════════════════════════════════════════════════════════════════════════
+etapa_extras() {
+    section "🔧  Etapa 9 — Scripts Extras"
+    echo ""
     _run_extra "${HALFIN_DIR}/extras/fail2ban.sh"  "Fail2ban"
     echo ""
     _run_extra "${HALFIN_DIR}/extras/pi-hole.sh"   "Pi-hole + Unbound"

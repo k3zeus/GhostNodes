@@ -3,7 +3,7 @@ version: "3.8"
 services:
   ghost-api:
     build:
-      context: ../backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: ghost-api
     restart: always
@@ -21,7 +21,7 @@ services:
 
   ghost-ui:
     build:
-      context: ../frontend
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: ghost-ui
     restart: always
@@ -29,3 +29,4 @@ services:
       - "80:80"
     depends_on:
       - ghost-api
+

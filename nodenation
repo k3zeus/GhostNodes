@@ -567,6 +567,9 @@ launch_subproject() {
         sep
 
         # Verifica se há pré-configuração disponível
+        local HAS_PRE=0
+        check_preinstall_exists "$PROJECT" && HAS_PRE=1
+
         printf "\n  ${BOLD}${WHITE}Installation Options:${RESET}\n\n"
 
         if [ "$HAS_PRE" -eq 1 ]; then

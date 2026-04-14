@@ -13,8 +13,10 @@ def is_satoshi_installed():
         "/home/pleb/nodenation/satoshi",
         os.path.expanduser("~/nodenation/satoshi")
     ]
-    # Também checa se o binário bitcoin-cli existe
-    has_cli = subprocess.call(["which", "bitcoin-cli"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+    # Também checa se o binário bitcoin-cli existe (Linux only)
+    has_cli = False
+    if os.name != 'nt':
+        has_cli = subprocess.call(["which", "bitcoin-cli"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
     return any(os.path.exists(p) for p in paths) or has_cli
 
 def rpc_call(method, params=None):
