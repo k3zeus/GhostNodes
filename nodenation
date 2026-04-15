@@ -106,11 +106,11 @@ _sair() {
 }
 
 # Trata input de menu — [q] sempre sai, [0] sempre volta
+# NÃO usar via $() — _sair() precisa rodar no processo principal
 _menu_read() {
     printf "\n  ${BOLD}Opção:${RESET} " >&2
     read -r _MENU_OPT
     [[ "${_MENU_OPT:-}" =~ ^[qQ]$ ]] && _sair
-    printf "%s" "${_MENU_OPT:-}"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -190,7 +190,7 @@ show_help() {
     echo ""
     printf "  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
     sep
-    OPT=$(_menu_read)
+    _menu_read; OPT="$_MENU_OPT"
     [[ "$OPT" == "0" ]] && return
 }
 
@@ -339,9 +339,14 @@ download_project() {
 
     # Localiza pasta extraída
     local EXTRACTED
-    EXTRACTED=$(find "$EXTRACT_PARENT" -maxdepth 1 -type d -name "ghostnodes*" 2>/dev/null | head -1)
+    EXTRACTED=$(find "$EXTRACT_PARENT" -maxdepth 1 -type d -iname "ghostnodes*" 2>/dev/null | head -1)
+    # Fallback: tenta nome exato do repo se find falhou
+    if [ -z "$EXTRACTED" ] || [ ! -d "$EXTRACTED" ]; then
+        [ -d "${EXTRACT_PARENT}/${GN_REPO_DIR_NAME}" ] && EXTRACTED="${EXTRACT_PARENT}/${GN_REPO_DIR_NAME}"
+    fi
     if [ -z "$EXTRACTED" ] || [ ! -d "$EXTRACTED" ]; then
         step_err "Pasta extraída não encontrada em $EXTRACT_PARENT"
+        step_info "Esperado: ${GN_REPO_DIR_NAME} ou ghostnodes*"
         return 1
     fi
 
@@ -588,7 +593,7 @@ launch_subproject() {
         printf "  ${BOLD}[0]${RESET}  Back  ${BOLD}[q]${RESET}  Quit\n"
         sep
 
-        OPT=$(_menu_read)
+        _menu_read; OPT="$_MENU_OPT"
 
         case "$OPT" in
             1)
@@ -692,17 +697,26 @@ menu_config_manual() {
         printf "  ${BOLD}${CYAN}[4]${RESET}  Alterar sources.list  ${RED}${DIM}(avançado)${RESET}\n"
         printf "  ${BOLD}${CYAN}[5]${RESET}  Atualizar sistema hospedeiro\n"
         echo ""
+        sep_thin
+        printf "  ${BOLD}${WHITE}Deploy:${RESET}\n"
+        printf "  ${BOLD}${CYAN}[6]${RESET}  Instalar Projeto GhostNodes  ${DIM}(staging → home)${RESET}\n"
+        printf "  ${BOLD}${CYAN}[7]${RESET}  Dashboard Web  ${DIM}(instalar/iniciar/status)${RESET}\n"
+        printf "  ${BOLD}${CYAN}[8]${RESET}  Executar pre_install.sh  ${RED}${DIM}(completa)${RESET}\n"
+        echo ""
         sep
         printf "  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
         sep
 
-        OPT=$(_menu_read)
+        _menu_read; OPT="$_MENU_OPT"
         case "$OPT" in
             1) _cfg_novo_usuario ;;
             2) _cfg_alias_interface ;;
             3) _cfg_rede ;;
             4) _cfg_sourcelist ;;
             5) _cfg_update ;;
+            6) instalar_projeto; press_enter_or_back ;;
+            7) _cfg_dashboard ;;
+            8) _executar_pre_install "halfin" ;;
             0|"") return ;;
         esac
     done
@@ -764,7 +778,7 @@ _cfg_rede() {
         printf "  ${BOLD}${CYAN}[3]${RESET}  Configurar DHCP\n"
         printf "\n  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
         sep
-        OPT=$(_menu_read)
+        _menu_read; OPT="$_MENU_OPT"
         case "$OPT" in
             1) [ -f "$WIFI_SH" ] && bash "$WIFI_SH" || step_warn "Script não disponível" ;;
             2) printf "  Interface: "; read -r NIC
@@ -791,7 +805,7 @@ _cfg_sourcelist() {
         printf "  ${BOLD}${CYAN}[3]${RESET}  Editar manualmente (nano)\n"
         printf "\n  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
         sep
-        OPT=$(_menu_read)
+        _menu_read; OPT="$_MENU_OPT"
         cp /etc/apt/sources.list "/etc/apt/sources.list.bak.$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
         case "$OPT" in
             1) tee /etc/apt/sources.list > /dev/null << 'SRC'
@@ -840,6 +854,90 @@ _cfg_update() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# DASHBOARD WEB — submenu de gerenciamento
+# ══════════════════════════════════════════════════════════════════════════════
+_cfg_dashboard() {
+    while true; do
+        banner_root; section "🌐  Dashboard Web — GhostNodes"; echo ""
+        local WEB_DIR=""
+        for D in "${GN_ROOT}/web" "${GN_TMP_DIR}/web"; do
+            [ -d "$D" ] && WEB_DIR="$D" && break
+        done
+        if [ -z "$WEB_DIR" ]; then
+            step_err "Projeto web não encontrado — baixe o projeto primeiro [d]"
+            press_enter_or_back; return
+        fi
+        step_ok "Web dir: $WEB_DIR"
+        echo ""
+        if systemctl is-active "$WEB_SERVICE" &>/dev/null 2>&1; then
+            printf "  ${GREEN}${BOLD}● Dashboard ATIVO${RESET}\n"
+        else
+            printf "  ${RED}● Dashboard INATIVO${RESET}\n"
+        fi
+        echo ""
+        printf "  ${BOLD}${CYAN}[1]${RESET}  Instalar dependências (pip)\n"
+        printf "  ${BOLD}${CYAN}[2]${RESET}  Criar systemd service\n"
+        printf "  ${BOLD}${CYAN}[3]${RESET}  Iniciar Dashboard\n"
+        printf "  ${BOLD}${CYAN}[4]${RESET}  Parar Dashboard\n"
+        printf "  ${BOLD}${CYAN}[5]${RESET}  Status / Logs\n"
+        printf "\n  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
+        sep
+        _menu_read; OPT="$_MENU_OPT"
+        case "$OPT" in
+            1)  step_info "Instalando dependências Python..."
+                local REQ="${WEB_DIR}/backend/requirements.txt"
+                if [ -f "$REQ" ]; then
+                    pip3 install -r "$REQ" 2>&1 \
+                        | tail -5 | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done
+                    step_ok "Dependências instaladas"
+                else
+                    step_warn "requirements.txt não encontrado em ${WEB_DIR}/backend/"
+                fi
+                press_enter_or_back ;;
+            2)  step_info "Criando systemd service: ${WEB_SERVICE}..."
+                cat > "/etc/systemd/system/${WEB_SERVICE}" << SVCEOF
+[Unit]
+Description=GhostNodes Sovereign Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=${GN_USER}
+WorkingDirectory=${GN_ROOT}/web/backend
+ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 80
+Restart=on-failure
+RestartSec=5
+Environment=GN_ROOT=${GN_ROOT}
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+                systemctl daemon-reload
+                systemctl enable "$WEB_SERVICE" 2>/dev/null || true
+                step_ok "Service criado: ${WEB_SERVICE}"
+                press_enter_or_back ;;
+            3)  systemctl start "$WEB_SERVICE" 2>/dev/null \
+                    && step_ok "Dashboard iniciado" \
+                    || step_err "Falha — verifique: journalctl -u $WEB_SERVICE"
+                press_enter_or_back ;;
+            4)  systemctl stop "$WEB_SERVICE" 2>/dev/null \
+                    && step_ok "Dashboard parado" \
+                    || step_warn "Não estava rodando"
+                press_enter_or_back ;;
+            5)  echo ""
+                systemctl status "$WEB_SERVICE" 2>&1 \
+                    | while IFS= read -r L; do printf "  %s\n" "$L"; done
+                echo ""
+                step_info "Últimas 15 linhas do log:"
+                journalctl -u "$WEB_SERVICE" --no-pager -n 15 2>&1 \
+                    | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done
+                press_enter_or_back ;;
+            0|"") return ;;
+        esac
+    done
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MENU SATOSHI
 # ══════════════════════════════════════════════════════════════════════════════
 menu_satoshi() {
@@ -850,7 +948,7 @@ menu_satoshi() {
         printf "  ${BOLD}${CYAN}[3]${RESET}  Requisitos de Hardware\n"
         printf "\n  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
         sep
-        OPT=$(_menu_read)
+        _menu_read; OPT="$_MENU_OPT"
         case "$OPT" in
             1) launch_subproject "satoshi" "Satoshi Node" ;;
             2) banner_root; section "Status Bitcoin Node"; echo ""
@@ -879,7 +977,7 @@ menu_coming_soon() {
     echo ""
     printf "  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
     sep
-    OPT=$(_menu_read)
+    _menu_read; OPT="$_MENU_OPT"
     return
 }
 
@@ -933,7 +1031,7 @@ menu_principal() {
         printf "  ${BOLD}[q]${RESET}  Quit\n"
         sep
 
-        OPT=$(_menu_read)
+        _menu_read; OPT="$_MENU_OPT"
 
         case "$OPT" in
             1) launch_subproject "halfin"  "Halfin Node" ;;

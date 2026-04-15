@@ -70,14 +70,23 @@ gn_register_preinstall \
     "halfin/pre_install_rpi4.sh" \
     "Raspberry Pi 4 — Debian/Raspbian arm64"
 
-# Genérico arm64 Debian (fallback para Halfin)
+# Genérico arm64 Debian/Ubuntu/Armbian (fallback para Halfin)
 gn_register_preinstall \
     "halfin" \
     ".*" \
     "arm64" \
-    "Debian.*bookworm" \
+    "Debian|Ubuntu|Armbian" \
     "halfin/pre_install.sh" \
-    "Debian Bookworm arm64 genérico (compatibilidade básica)"
+    "Debian/Ubuntu arm64 genérico (compatibilidade básica)"
+
+# Genérico qualquer arch + Linux (último fallback — Halfin)
+gn_register_preinstall \
+    "halfin" \
+    ".*" \
+    "any" \
+    "Debian|Ubuntu|Armbian|Linux" \
+    "halfin/pre_install.sh" \
+    "Linux genérico — funcionalidade pode ser limitada"
 
 # ── Satoshi Node ──────────────────────────────────────────────────────────────
 
