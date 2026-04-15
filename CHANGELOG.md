@@ -11,6 +11,7 @@ All notable changes to the GhostNodes Sovereign Dashboard will be documented in 
 ### Added
 - **Dashboard Web submenu:** Full management (deps/service/start/stop/logs).
 - **Deploy options in Manual Config:** `[6]` install, `[7]` dashboard, `[8]` pre_install.sh.
+- **Automated Webapp Installation:** Created `halfin/extras/webapp.sh` to fill the gap in the Halfin pre_install.sh flow.
 
 ## [1.2.0] - 2026-04-10
 ### Added
