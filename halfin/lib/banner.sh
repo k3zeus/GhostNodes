@@ -28,9 +28,9 @@ status_bar() {
     # Tenta lm-sensors
     if command -v sensors &>/dev/null; then
         TEMP=$(sensors 2>/dev/null \
-            | awk '/^(CPU|temp1|cpu_thermal|Package|Tdie)/{
-                match($0,/\+([0-9.]+)/,a)
-                if(a[1]!="") { print a[1]"°C"; exit }
+            | awk '/^(CPU|temp1|cpu_thermal|Package|Tdie|Tctl)/{
+                match($0, /[0-9]+(\.[0-9]+)?/)
+                if(RSTART>0) { print substr($0, RSTART, RLENGTH)"°C"; exit }
             }')
     fi
 

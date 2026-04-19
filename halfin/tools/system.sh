@@ -142,9 +142,9 @@ bloco_hardware() {
     if command -v sensors &>/dev/null; then
         TEMP=$(sensors 2>/dev/null \
                | awk '/^(CPU|cpu_thermal|temp1|Package id|Tdie|Tctl)/{
-                   match($0,/\+([0-9.]+)/,a)
-                   if(a[1]!="") { print a[1]"°C"; exit }
-               }')
+                   match($0, /[0-9]+(\.[0-9]+)?/)
+                   if(RSTART>0) { print substr($0, RSTART, RLENGTH)"°C"; exit }
+               }' || echo "—")
     fi
 
     # Fallback via sysfs (OrangePi, RPi, etc)
