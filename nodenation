@@ -675,6 +675,11 @@ _executar_pre_install() {
     # Agora que o usuário foi criado, move staging → GN_ROOT
     if id "$GN_USER" &>/dev/null; then
         instalar_projeto
+        # Levanta o swarm caso os arquivos compose existam e ja estao devidamente locados no home do usuario
+        if [ -f "${GN_ROOT}/halfin/docker/docker-compose.yml" ]; then
+            step_info "Inicializando Docker Orchestration..."
+            cd "${GN_ROOT}/halfin/docker" && docker compose up -d || step_warn "Aviso: Nao foi possivel iniciar o compose up"
+        fi
     else
         step_warn "Usuário '${GN_USER}' não foi criado — projeto permanece em ${GN_TMP_DIR}"
         step_info "Execute manualmente: instalar_projeto"

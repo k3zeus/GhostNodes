@@ -58,7 +58,7 @@ fi
 # ── Variáveis do projeto (com fallback) ───────────────────────────────────────
 GN_USER="${GN_USER:-pleb}"
 GN_ROOT="${GN_ROOT:-/home/${GN_USER}/nodenation}"
-HALFIN_DIR="${HALFIN_DIR:-${GN_ROOT}/halfin}"
+HALFIN_DIR="${GN_TMP_DIR:-${GN_ROOT}}/halfin"
 GN_DEFAULT_PASSWORD="${GN_DEFAULT_PASSWORD:-Mudar123}"
 GN_HOSTNAME="${GN_HOSTNAME:-halfin}"
 GN_LEGACY_USER="${GN_LEGACY_USER:-orangepi}"

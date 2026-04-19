@@ -72,12 +72,16 @@ sudo systemctl enable docker
 ######
 echo "########### Orquestrando o Resto dos Serviços (Docker Compose) ..."
 #
-COMPOSE_FILE="/home/pleb/nodenation/halfin/docker/docker-compose.yml"
-if [ -f "$COMPOSE_FILE" ]; then
-    cd "$(dirname "$COMPOSE_FILE")"
-    docker compose -f "$COMPOSE_FILE" up -d
+COMPOSE_FILE="${HALFIN_DIR}/docker/docker-compose.yml"
+if [[ "$HALFIN_DIR" == *"/tmp/"* ]]; then
+    echo "Staging mode: Docker compose será iniciado pelo orquestrador principal apos mover os arquivos"
 else
-    echo "Aviso: docker-compose.yml não encontrado em $COMPOSE_FILE"
+    if [ -f "$COMPOSE_FILE" ]; then
+        cd "$(dirname "$COMPOSE_FILE")"
+        docker compose -f "$COMPOSE_FILE" up -d
+    else
+        echo "Aviso: docker-compose.yml não encontrado em $COMPOSE_FILE"
+    fi
 fi
 ########
 
