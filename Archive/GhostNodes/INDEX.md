@@ -4,6 +4,7 @@
 ## Sessões (mais recente primeiro)
 | Data | Arquivo | Resumo executivo |
 |------|---------|-----------------|
+| 2026-04-19 | [2026-04-19_10-21_path-mismatch-docker-bypass.md](./sessions/2026-04-19_10-21_path-mismatch-docker-bypass.md) | Cura Estrutural do SDD / Instalação Bypass e Orchestrador Docker |
 | 2026-04-19 | [2026-04-19_02-30_nodenation_set_e_fix.md](./sessions/2026-04-19_02-30_nodenation_set_e_fix.md) | Bugfix do TUI: Impedimento do crash imediato via interrupções curtas e limitadores Bash |
 | 2026-04-19 | [2026-04-19_01-10_git_sync_cleanup.md](./sessions/2026-04-19_01-10_git_sync_cleanup.md) | Confirmação de sincronia GitHub e limpeza de estado Git. |
 | 2026-04-15 | [2026-04-15_00-20_fix-quit-halfin-install.md](./sessions/2026-04-15_00-20_fix-quit-halfin-install.md) | Correção do loop de saída (quit) no instalador halfin. |

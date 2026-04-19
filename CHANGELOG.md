@@ -5,6 +5,9 @@ All notable changes to the GhostNodes Sovereign Dashboard will be documented in 
 ## [1.2.2] - 2026-04-19
 ### Fixed
 - **TUI Immediate Crash (set -e trap):** Fixed critical exit logic in `_menu_read()` and `check_preinstall_exists()` where short-circuit evaluation (`[[ ... ]] && cmd`) caused silent termination of the GhostNodes installer when selecting user options under `set -e` strict rules.
+- **nodenation:** Substituído short-circuit (`[[ ... ]] && cmd`) nas funções _menu_read e check_preinstall_exists por `if/then/fi` explícito, prevenindo que o `set -e` mate o script após seleção normal de menu e resolvendo o erro de queda imediata.
+- **ghostnode (tui):** Fixação estrutural do `HALFIN_DIR` para `nodenation/halfin` em substituição da arquitetura `dirname`, revivendo os menus dinâmicos e contornando a exclusão de pastas globais root.  
+- **docker.sh (bypass):** Implementado modo silencioso `GN_AUTO_INSTALL` ignorando perguntas iterativas de terminal, estabilizando e orquestrando o Syncthing/Heimdall via automatização base curl.
 
 ## [1.2.1] - 2026-04-15
 ### Fixed

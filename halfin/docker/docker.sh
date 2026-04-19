@@ -12,15 +12,24 @@ echo "### You would like to install the services: Docker and Portainer? ###"
 echo "#"
 echo "Install? [y/N]"
 
-read resp
-if [ $resp. != 'y.' ]; then
+if [ "$GN_AUTO_INSTALL" = "true" ] || [ "${AUTO_INSTALL:-false}" = "true" ]; then
+    echo "Auto-install enabled. Proceeding quietly..."
+    resp="y"
+    cockpit="n"
+else
+    read resp
+fi
+
+if [ "$resp" != "y" ] && [ "$resp" != "Y" ] && [ "$resp" != "s" ] && [ "$resp" != "S" ]; then
 
 echo ""
 echo "####### Install Web Interface? (Cockpit) ###"
 echo "#"
 echo "Install? [y/N]"
-        read cockpit
-        if [ $cockpit. != 's.' ]; then
+        if [ "$GN_AUTO_INSTALL" != "true" ]; then
+            read cockpit
+        fi
+        if [ "$cockpit" != "y" ] && [ "$cockpit" != "Y" ] && [ "$cockpit" != "s" ] && [ "$cockpit" != "S" ]; then
         exit 0
         fi
                 #######
@@ -61,13 +70,26 @@ docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always -v /va
 #
 sudo systemctl enable docker
 ######
+echo "########### Orquestrando o Resto dos Serviços (Docker Compose) ..."
+#
+COMPOSE_FILE="/home/pleb/nodenation/halfin/docker/docker-compose.yml"
+if [ -f "$COMPOSE_FILE" ]; then
+    cd "$(dirname "$COMPOSE_FILE")"
+    docker compose -f "$COMPOSE_FILE" up -d
+else
+    echo "Aviso: docker-compose.yml não encontrado em $COMPOSE_FILE"
+fi
 ########
 
 echo "Deseja instalar a interface Web? (Cockpit)
                 #
-                Instalar? [s/N]"
-        read cockpit
-        if [ $cockpit. != 's.' ]; then
+                Instalar? [y/N]"
+        if [ "$GN_AUTO_INSTALL" = "true" ] || [ "${AUTO_INSTALL:-false}" = "true" ]; then
+            cockpit="n"
+        else
+            read cockpit
+        fi
+        if [ "$cockpit" != "y" ] && [ "$cockpit" != "Y" ] && [ "$cockpit" != "s" ] && [ "$cockpit" != "S" ]; then
         exit 0
         fi
 

@@ -63,6 +63,7 @@ GN_DEFAULT_PASSWORD="${GN_DEFAULT_PASSWORD:-Mudar123}"
 GN_HOSTNAME="${GN_HOSTNAME:-halfin}"
 GN_LEGACY_USER="${GN_LEGACY_USER:-orangepi}"
 PLEB_HOME="/home/${GN_USER}"
+export GN_AUTO_INSTALL="true"
 
 # ── Variáveis de rede (OrangePi Zero 3) ──────────────────────────────────────
 SSID="${HALFIN_SSID:-Halfin}"

@@ -15,7 +15,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # CONFIGURAÇÃO GLOBAL
 # ══════════════════════════════════════════════════════════════════════════════
-HALFIN_DIR="/home/pleb/halfin"
+HALFIN_DIR="/home/pleb/nodenation/halfin"
 TOOLS_DIR="$HALFIN_DIR/tools"
 DOCKER_DIR="$HALFIN_DIR/docker"
 LOG_DIR="$HALFIN_DIR/logs"
@@ -23,7 +23,7 @@ LOG_FILE="$LOG_DIR/ghostnode_$(date +%Y%m%d).log"
 
 
 # ── Biblioteca modular do projeto ───────────────────────────────────────────
-_GN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_GN_ROOT="$HALFIN_DIR"
 source "${_GN_ROOT}/lib/init.sh"
 # ══════════════════════════════════════════════════════════════════════════════
 # HELP — exibido quando chamado com --help ou -h
