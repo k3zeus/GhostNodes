@@ -110,7 +110,7 @@ _sair() {
 _menu_read() {
     printf "\n  ${BOLD}Opção:${RESET} " >&2
     read -r _MENU_OPT
-    [[ "${_MENU_OPT:-}" =~ ^[qQ]$ ]] && _sair
+    if [[ "${_MENU_OPT:-}" =~ ^[qQ]$ ]]; then _sair; fi
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -573,7 +573,7 @@ launch_subproject() {
 
         # Verifica se há pré-configuração disponível
         local HAS_PRE=0
-        check_preinstall_exists "$PROJECT" && HAS_PRE=1
+        if check_preinstall_exists "$PROJECT"; then HAS_PRE=1; fi
 
         printf "\n  ${BOLD}${WHITE}Installation Options:${RESET}\n\n"
 
