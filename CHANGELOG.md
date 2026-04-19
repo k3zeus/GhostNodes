@@ -2,6 +2,10 @@
 
 All notable changes to the GhostNodes Sovereign Dashboard will be documented in this file.
 
+## [1.2.2] - 2026-04-19
+### Fixed
+- **TUI Immediate Crash (set -e trap):** Fixed critical exit logic in `_menu_read()` and `check_preinstall_exists()` where short-circuit evaluation (`[[ ... ]] && cmd`) caused silent termination of the GhostNodes installer when selecting user options under `set -e` strict rules.
+
 ## [1.2.1] - 2026-04-15
 ### Fixed
 - **[q] Quit broken:** `_menu_read()` ran `_sair()`/`exit 0` inside a `$()` subshell. Refactored to global `$_MENU_OPT`.
