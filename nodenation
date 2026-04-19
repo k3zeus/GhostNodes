@@ -307,10 +307,18 @@ download_project() {
     fi
 
     # Download
-    if [ -f "$TARBALL" ] && confirm "Cache encontrado. Usar?"; then
-        step_ok "Usando cache: $TARBALL"
-    else
-        rm -f "$TARBALL"
+    if [ -f "$TARBALL" ]; then
+        if [ ! -t 0 ] || [ "${GN_AUTO_INSTALL:-false}" = "true" ]; then
+            step_info "Modo Silencioso/Bootstrap: Forçando download e invalidando cache."
+            rm -f "$TARBALL"
+        elif confirm "Cache encontrado. Usar?"; then
+            step_ok "Usando cache: $TARBALL"
+        else
+            rm -f "$TARBALL"
+        fi
+    fi
+
+    if [ ! -f "$TARBALL" ]; then
         step_info "Baixando de:\n    ${DIM}${GN_REPO_URL}${RESET}"
         echo ""
         if command -v wget &>/dev/null; then
