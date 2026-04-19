@@ -15,7 +15,7 @@
 _GN_LOG_LOADED=1
 
 # ── Configuração de caminhos ──────────────────────────────────────────────────
-_GN_HALFIN_DIR="${HALFIN_DIR:-${HALFIN_DIR}}"
+_GN_HALFIN_DIR="${HALFIN_DIR:-/home/pleb/nodenation/halfin}"
 _GN_LOG_DIR="${LOG_DIR:-${_GN_HALFIN_DIR}/logs}"
 _GN_LOG_FILE=""          # definido por log_init
 _GN_LOG_CONTEXT="ghost"  # nome do script/contexto atual
