@@ -113,6 +113,11 @@ header_compact() {
     echo ""
 }
 
+# Alias para compatibilidade
+header() {
+    header_compact "$@"
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 # HEADER INSTALL — para o script de instalação
 # ══════════════════════════════════════════════════════════════════════════════

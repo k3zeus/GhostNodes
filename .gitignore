@@ -34,5 +34,5 @@ ghostnodes_backup/
 # Exceções (Arquivos mantidos por ordem direta do usuário)
 !temp.sh
 !**/pass.txt
-!**/*.env
+**/*.env
 !**/*.env.example

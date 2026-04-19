@@ -2,6 +2,9 @@
 #
 # Installation Script Docker - Halfin Node - Debian Bookworm - v.0.7 20032026 
 #
+_GN_DOCKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HALFIN_DIR="${HALFIN_DIR:-$(dirname "$_GN_DOCKER_DIR")}"
+GN_ROOT="${GN_ROOT:-$(dirname "$HALFIN_DIR")}"
 echo "#############################################################"
 echo "############ Choose Extra Services to Install ###############"
 echo "#############################################################"
@@ -73,12 +76,49 @@ sudo systemctl enable docker
 echo "########### Orquestrando o Resto dos Serviços (Docker Compose) ..."
 #
 COMPOSE_FILE="${HALFIN_DIR}/docker/docker-compose.yml"
+COMPOSE_DIR="$(dirname "$COMPOSE_FILE")"
+
+if [ -f "${COMPOSE_DIR}/.env.example" ] && [ ! -f "${COMPOSE_DIR}/.env" ]; then
+    echo "Gerando novo .env a partir de .env.example com senhas aleatorias seguras..."
+    # Generate 3 random passwords silently
+    S_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 || true)"
+    W_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 || true)"
+    P_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 || true)"
+    
+    cp "${COMPOSE_DIR}/.env.example" "${COMPOSE_DIR}/.env"
+    
+    # Path dynamic replace for DOCKER_ROOT in .env.example
+    sed -i "s|DOCKER_ROOT=/home/pleb/nodenation/halfin/docker|DOCKER_ROOT=${COMPOSE_DIR}|g" "${COMPOSE_DIR}/.env"
+    
+    sed -i "s/SYNCTHING_PASS=Mudar123/SYNCTHING_PASS=${S_PASS}/g" "${COMPOSE_DIR}/.env"
+    sed -i "s/WG_PASSWORD=Mudar123/WG_PASSWORD=${W_PASS}/g" "${COMPOSE_DIR}/.env"
+    sed -i "s/POSTGRES_PASSWORD=Mudar123/POSTGRES_PASSWORD=${P_PASS}/g" "${COMPOSE_DIR}/.env"
+    
+    cat <<EOF > "${COMPOSE_DIR}/pass_auto_generated.txt"
+======================================================
+  SENHAS GERADAS AUTOMATICAMENTE (GhostNodes)
+======================================================
+  Syncthing:                ${S_PASS}
+  Wireguard:                ${W_PASS}
+  Postgres/Nextcloud DB:    ${P_PASS}
+
+  Guarde estas senhas!
+  O arquivo ".env" agora estah configurado.
+======================================================
+EOF
+    echo ""
+    echo -e "\e[1;33mATENCAO: SENHAS GERADAS E SALVAS EM ${COMPOSE_DIR}/pass_auto_generated.txt\e[0m"
+    cat "${COMPOSE_DIR}/pass_auto_generated.txt"
+    echo ""
+    sleep 3
+fi
+
 if [[ "$HALFIN_DIR" == *"/tmp/"* ]]; then
     echo "Staging mode: Docker compose será iniciado pelo orquestrador principal apos mover os arquivos"
 else
     if [ -f "$COMPOSE_FILE" ]; then
-        cd "$(dirname "$COMPOSE_FILE")"
-        docker compose -f "$COMPOSE_FILE" up -d
+        cd "$COMPOSE_DIR"
+        docker compose up -d
     else
         echo "Aviso: docker-compose.yml não encontrado em $COMPOSE_FILE"
     fi
