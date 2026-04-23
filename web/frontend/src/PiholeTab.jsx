@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2, Plus, Trash2, Server, Shield, Globe, HardDrive } from 'lucide-react';
+import { apiFetch } from './api';
 
 export default function PiholeTab({ token }) {
   const [internalTab, setInternalTab] = useState('STATS');
@@ -19,7 +20,7 @@ export default function PiholeTab({ token }) {
   const fetchStats = async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('http://localhost:8000/api/services/pihole/summary', { headers: { 'Authorization': `Bearer ${token}` }});
+      const res = await apiFetch('/api/services/pihole/summary', { headers: { 'Authorization': `Bearer ${token}` }});
       if (!res.ok) throw new Error(await res.text());
       setStats(await res.json());
     } catch (e) { setError(e.message); }
@@ -29,7 +30,7 @@ export default function PiholeTab({ token }) {
   const fetchDns = async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('http://localhost:8000/api/services/pihole/dns', { headers: { 'Authorization': `Bearer ${token}` }});
+      const res = await apiFetch('/api/services/pihole/dns', { headers: { 'Authorization': `Bearer ${token}` }});
       if (!res.ok) throw new Error(await res.text());
       setDnsRecords(await res.json());
     } catch (e) { setError(e.message); }
@@ -39,7 +40,7 @@ export default function PiholeTab({ token }) {
   const fetchLeases = async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('http://localhost:8000/api/services/pihole/network', { headers: { 'Authorization': `Bearer ${token}` }});
+      const res = await apiFetch('/api/services/pihole/network', { headers: { 'Authorization': `Bearer ${token}` }});
       if (!res.ok) throw new Error(await res.text());
       setDhcpLeases(await res.json());
     } catch (e) { setError(e.message); }
@@ -48,7 +49,7 @@ export default function PiholeTab({ token }) {
 
   const handleAddDns = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/services/pihole/dns', {
+      const res = await apiFetch('/api/services/pihole/dns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ domain: newDnsDomain, ip: newDnsIp })
@@ -61,7 +62,7 @@ export default function PiholeTab({ token }) {
 
   const handleRemoveDns = async (domain) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/services/pihole/dns/${domain}`, {
+      const res = await apiFetch(`/api/services/pihole/dns/${domain}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

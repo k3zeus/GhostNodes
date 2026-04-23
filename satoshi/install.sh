@@ -1,239 +1,345 @@
 #!/bin/bash
 #
-# ╔══════════════════════════════════════════════════════════════╗
-# ║  satoshi/install.sh — Bitcoin Node Setup                     ║
-# ║  Ghost Node Nation - Satoshi Node                      ║
-# ╚══════════════════════════════════════════════════════════════╝
-# v.02 - 22032026
-#
-# Chamado por: nodenation → opção [2] Satoshi Node
-# Recebe via export: GN_HW_ARCH, GN_HW_RAM_GB, GN_INSTALL_MODE
+# SATOSHI NODE - Bitcoin Core / Knots installer
 #
 
-# ── Biblioteca modular ────────────────────────────────────────────────────────
+set -euo pipefail
+
 _GN_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _GN_FIND="$_GN_SELF"
-while [ ! -d "${_GN_FIND}/lib" ] && [ "$_GN_FIND" != "/" ]; do
+while [ ! -d "${_GN_FIND}/halfin/lib" ] && [ "$_GN_FIND" != "/" ]; do
     _GN_FIND="$(dirname "$_GN_FIND")"
 done
+
 source "${_GN_FIND}/halfin/lib/init.sh" 2>/dev/null || {
-    echo "[ERRO] lib/init.sh não encontrado. Execute via menu nodenation."
+    echo "[ERRO] halfin/lib/init.sh nao encontrado. Execute via nodenation."
     exit 1
 }
 
 log_init "satoshi_install"
 require_root
 
-# ── Variáveis locais ──────────────────────────────────────────────────────────
+GN_USER="${GN_USER:-pleb}"
+GN_ROOT="${GN_ROOT:-/home/${GN_USER}/nodenation}"
 SATOSHI_DIR="${GN_ROOT}/satoshi"
 SATOSHI_LOG_DIR="${SATOSHI_DIR}/logs"
-INSTALL_MODE="${GN_INSTALL_MODE:-standard}"  # full | pruned | standard
+SATOSHI_VAR_DIR="${GN_ROOT}/var"
+SATOSHI_ENV_FILE="${SATOSHI_VAR_DIR}/bitcoin-rpc.env"
+INSTALL_MODE="${GN_INSTALL_MODE:-standard}"
+AUTO_MODE="${GN_AUTO_INSTALL:-false}"
 BITCOIN_USER="bitcoin"
+BITCOIN_GROUP="${BITCOIN_USER}"
 BITCOIN_DIR="/home/${BITCOIN_USER}/.bitcoin"
-BITCOIN_VERSION="26.0"   # atualizar conforme release
+BITCOIN_CONF="${BITCOIN_DIR}/bitcoin.conf"
+BITCOIN_SERVICE="bitcoind.service"
+BITCOIN_VARIANT="${SATOSHI_VARIANT:-core}"
+BITCOIN_VERSION=""
+BITCOIN_URL=""
 
-mkdir -p "$SATOSHI_LOG_DIR"
+mkdir -p "$SATOSHI_LOG_DIR" "$SATOSHI_VAR_DIR"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# MENU PRINCIPAL DO SATOSHI INSTALL
-# ══════════════════════════════════════════════════════════════════════════════
 banner() {
-    main_banner "  ◈  S A T O S H I   N O D E   —   I N S T A L L  ◈"
+    main_banner "  SATOSHI NODE - BITCOIN INSTALL  "
+}
+
+download_file() {
+    local url="$1"
+    local output="$2"
+
+    if command -v wget >/dev/null 2>&1; then
+        wget -q --show-progress -O "$output" "$url"
+    elif command -v curl >/dev/null 2>&1; then
+        curl -fL --progress-bar -o "$output" "$url"
+    else
+        step_err "wget ou curl nao encontrado"
+        return 1
+    fi
+}
+
+ensure_bitcoin_user() {
+    if ! id "$BITCOIN_USER" >/dev/null 2>&1; then
+        adduser --disabled-password --gecos "" "$BITCOIN_USER"
+        step_ok "Usuario '${BITCOIN_USER}' criado"
+    fi
+    mkdir -p "$BITCOIN_DIR" "$SATOSHI_LOG_DIR"
+    chown -R "${BITCOIN_USER}:${BITCOIN_GROUP}" "$BITCOIN_DIR" "$SATOSHI_LOG_DIR"
+}
+
+resolve_release() {
+    case "$BITCOIN_VARIANT" in
+        core)
+            BITCOIN_VERSION="29.1"
+            case "${GN_HW_ARCH:-unknown}" in
+                arm64)  BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
+                x86_64) BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
+                armhf)  BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-arm-linux-gnueabihf.tar.gz" ;;
+                *) step_err "Arquitetura nao suportada para Bitcoin Core: ${GN_HW_ARCH:-?}"; return 1 ;;
+            esac
+            ;;
+        knots)
+            BITCOIN_VERSION="29.3.knots20260210"
+            case "${GN_HW_ARCH:-unknown}" in
+                arm64)  BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
+                x86_64) BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
+                armhf)  BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-arm-linux-gnueabihf.tar.gz" ;;
+                *) step_err "Arquitetura nao suportada para Bitcoin Knots: ${GN_HW_ARCH:-?}"; return 1 ;;
+            esac
+            ;;
+        *)
+            step_err "Implementacao invalida: ${BITCOIN_VARIANT}"
+            return 1
+            ;;
+    esac
+}
+
+choose_variant() {
+    if [ "$AUTO_MODE" = "true" ]; then
+        return 0
+    fi
+
+    echo ""
+    printf "  ${BOLD}Qual implementacao deseja instalar?${RESET}\n"
+    printf "  ${CYAN}[1]${RESET} Bitcoin Core\n"
+    printf "  ${CYAN}[2]${RESET} Bitcoin Knots\n"
+    printf "  ${BOLD}[0]${RESET} Voltar  ${BOLD}[q]${RESET} Sair\n"
+    printf "\n  ${BOLD}Opcao:${RESET} "
+    read -r variant_opt
+
+    case "$variant_opt" in
+        1) BITCOIN_VARIANT="core" ;;
+        2) BITCOIN_VARIANT="knots" ;;
+        0|"") return 1 ;;
+        q|Q) exit 0 ;;
+        *) step_warn "Opcao invalida"; return 1 ;;
+    esac
+
+    return 0
+}
+
+write_rpc_env() {
+    mkdir -p "$SATOSHI_VAR_DIR"
+    cat > "$SATOSHI_ENV_FILE" <<EOF
+BITCOIN_RPC_URL=http://127.0.0.1:8332
+BITCOIN_RPC_USER=${BITCOIN_RPC_USER}
+BITCOIN_RPC_PASS=${BITCOIN_RPC_PASS}
+BITCOIN_RPC_HOST=127.0.0.1
+BITCOIN_RPC_PORT=8332
+EOF
+    chmod 600 "$SATOSHI_ENV_FILE"
+}
+
+create_systemd_service() {
+    step_info "Registrando servico systemd: ${BITCOIN_SERVICE}"
+    cat > "/etc/systemd/system/${BITCOIN_SERVICE}" <<EOF
+[Unit]
+Description=Satoshi Node Bitcoin daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${BITCOIN_USER}
+Group=${BITCOIN_GROUP}
+ExecStart=/usr/local/bin/bitcoind -conf=${BITCOIN_CONF} -datadir=${BITCOIN_DIR}
+ExecStop=/usr/local/bin/bitcoin-cli -conf=${BITCOIN_CONF} stop
+Restart=on-failure
+RestartSec=10
+RuntimeDirectory=bitcoind
+StateDirectory=bitcoind
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable "${BITCOIN_SERVICE}" >/dev/null 2>&1
+}
+
+instalar_bitcoind() {
+    banner
+    section "Download do Node Bitcoin"
+    echo ""
+
+    choose_variant || return 0
+    resolve_release || { press_enter_or_back; return; }
+
+    step_info "Arquitetura: ${GN_HW_ARCH:-desconhecida}"
+    step_info "Implementacao: ${BITCOIN_VARIANT}"
+    step_info "Versao: ${BITCOIN_VERSION}"
+    step_info "URL: ${BITCOIN_URL}"
+
+    if [ "$AUTO_MODE" != "true" ] && ! confirm "Confirma o download?"; then
+        return
+    fi
+
+    local tarball="/tmp/bitcoin-${BITCOIN_VERSION}.tar.gz"
+    local extract_dir="/tmp/bitcoin-${BITCOIN_VERSION}"
+    rm -rf "$extract_dir" "$tarball"
+
+    step_info "Baixando binarios..."
+    download_file "$BITCOIN_URL" "$tarball"
+
+    step_info "Extraindo..."
+    mkdir -p "$extract_dir"
+    tar -xzf "$tarball" -C "$extract_dir"
+
+    local top_dir
+    top_dir="$(tar -tzf "$tarball" | head -1 | cut -d/ -f1)"
+    local bin_dir="${extract_dir}/${top_dir}/bin"
+
+    if [ ! -d "$bin_dir" ]; then
+        step_err "Diretorio de binarios nao encontrado em ${bin_dir}"
+        press_enter_or_back
+        return
+    fi
+
+    step_info "Instalando binarios em /usr/local/bin..."
+    install -m 0755 "${bin_dir}/bitcoind" /usr/local/bin/
+    install -m 0755 "${bin_dir}/bitcoin-cli" /usr/local/bin/
+    install -m 0755 "${bin_dir}/bitcoin-tx" /usr/local/bin/ 2>/dev/null || true
+    rm -rf "$extract_dir" "$tarball"
+
+    ensure_bitcoin_user
+    step_ok "Binarios ${BITCOIN_VARIANT} ${BITCOIN_VERSION} instalados"
+    log_ok "bitcoin instalado: ${BITCOIN_VARIANT} ${BITCOIN_VERSION}"
+
+    if [ "$AUTO_MODE" != "true" ]; then
+        press_enter_or_back
+    fi
+}
+
+configurar_bitcoin() {
+    banner
+    section "Configuracao do bitcoin.conf"
+    echo ""
+
+    ensure_bitcoin_user
+
+    local prune_val=0
+    case "$INSTALL_MODE" in
+        pruned) prune_val=550 ;;
+        full) prune_val=0 ;;
+        *) prune_val=0 ;;
+    esac
+
+    if [ -f "$SATOSHI_ENV_FILE" ]; then
+        source "$SATOSHI_ENV_FILE"
+    fi
+
+    BITCOIN_RPC_USER="${BITCOIN_RPC_USER:-satoshi}"
+    BITCOIN_RPC_PASS="${BITCOIN_RPC_PASS:-$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)}"
+
+    mkdir -p "$BITCOIN_DIR" "$SATOSHI_LOG_DIR"
+
+    cat > "$BITCOIN_CONF" <<EOF
+# bitcoin.conf - GhostNodes / Satoshi Node
+# Gerado em: $(date '+%F %T')
+server=1
+daemon=0
+txindex=$([ "$INSTALL_MODE" = "full" ] && echo "1" || echo "0")
+$( [ "$prune_val" -gt 0 ] && echo "prune=${prune_val}" || echo "# prune=0" )
+
+listen=1
+rpcbind=127.0.0.1
+rpcallowip=127.0.0.1
+rpcallowip=172.17.0.0/16
+rpcuser=${BITCOIN_RPC_USER}
+rpcpassword=${BITCOIN_RPC_PASS}
+
+debuglogfile=${SATOSHI_LOG_DIR}/bitcoin.log
+maxconnections=40
+EOF
+
+    chown "${BITCOIN_USER}:${BITCOIN_GROUP}" "$BITCOIN_CONF"
+    chmod 600 "$BITCOIN_CONF"
+
+    write_rpc_env
+    create_systemd_service
+
+    step_info "Iniciando ${BITCOIN_SERVICE}..."
+    systemctl restart "${BITCOIN_SERVICE}"
+    step_ok "bitcoin.conf salvo e servico iniciado"
+    log_ok "bitcoin.conf gerado - modo=${INSTALL_MODE}"
+
+    if [ "$AUTO_MODE" != "true" ]; then
+        press_enter_or_back
+    fi
+}
+
+verificar_bitcoin() {
+    banner
+    section "Status do Bitcoin Node"
+    echo ""
+
+    if command -v bitcoind >/dev/null 2>&1; then
+        step_ok "bitcoind instalado"
+    else
+        step_err "bitcoind nao instalado"
+    fi
+
+    if systemctl is-active "${BITCOIN_SERVICE}" >/dev/null 2>&1; then
+        step_ok "Servico ${BITCOIN_SERVICE} ativo"
+    else
+        step_warn "Servico ${BITCOIN_SERVICE} inativo"
+    fi
+
+    if bitcoin-cli -conf="${BITCOIN_CONF}" getblockchaininfo >/dev/null 2>&1; then
+        step_ok "RPC respondendo"
+        bitcoin-cli -conf="${BITCOIN_CONF}" getblockchaininfo \
+            | while IFS= read -r line; do printf "  ${DIM}%s${RESET}\n" "$line"; done
+    else
+        step_warn "RPC ainda nao responde - confira sincronizacao/logs"
+    fi
+
+    if [ "$AUTO_MODE" != "true" ]; then
+        press_enter_or_back
+    fi
+}
+
+run_auto_install() {
+    instalar_bitcoind
+    configurar_bitcoin
+    verificar_bitcoin
 }
 
 main() {
     banner
 
     echo ""
-    # Exibe modo de instalação definido pelo pre-install
     case "$INSTALL_MODE" in
         full)
-            step_ok "Modo detectado: ${BOLD}Full Node${RESET} (blockchain completa)"
+            step_ok "Modo detectado: Full Node"
             ;;
         pruned)
-            step_warn "Modo detectado: ${BOLD}Pruned Node${RESET}"
-            printf "  ${DIM}  Disco insuficiente para Full Node — será instalado como Pruned.${RESET}\n"
-            printf "  ${DIM}  Um Pruned Node valida transações mas não armazena histórico completo.${RESET}\n"
+            step_warn "Modo detectado: Pruned Node"
             ;;
         *)
-            step_info "Modo: padrão (será definido na configuração)"
+            step_info "Modo detectado: standard"
             ;;
     esac
 
-    echo ""
-    sep
+    if [ "$AUTO_MODE" = "true" ]; then
+        run_auto_install
+        return
+    fi
 
     while true; do
         echo ""
-        printf "  ${BOLD}${CYAN}[1]${RESET}  Instalar Bitcoin Core (bitcoind)\n"
-        printf "  ${BOLD}${CYAN}[2]${RESET}  Configurar bitcoin.conf\n"
-        printf "  ${BOLD}${CYAN}[3]${RESET}  Verificar instalação\n"
-        printf "  ${BOLD}[0]${RESET}  Voltar\n"
+        printf "  ${BOLD}${CYAN}[1]${RESET}  Instalar Bitcoin Core / Knots\n"
+        printf "  ${BOLD}${CYAN}[2]${RESET}  Configurar bitcoin.conf e systemd\n"
+        printf "  ${BOLD}${CYAN}[3]${RESET}  Verificar status do node\n"
+        printf "  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
         echo ""
-        printf "  Opção: "
-        read -r OPT
-        case "$OPT" in
+        printf "  ${BOLD}Opcao:${RESET} "
+        read -r opt
+        case "$opt" in
             1) instalar_bitcoind ;;
             2) configurar_bitcoin ;;
             3) verificar_bitcoin ;;
             0|"") return ;;
-            *) step_warn "Opção inválida" ;;
+            q|Q) exit 0 ;;
+            *) step_warn "Opcao invalida" ;;
         esac
     done
-}
-
-instalar_bitcoind() {
-    banner
-    section "⬇  Download Daemon Bitcoin"
-    section "⬇  Download Bitcoin Core ${BITCOIN_VERSION}"
-    echo ""
-
-    step_info "Arquitetura: ${GN_HW_ARCH:-desconhecida}"
-
-    echo ""
-    printf "  ${BOLD}Qual implementação você deseja instalar?${RESET}\n"
-    printf "  ${CYAN}[1]${RESET} Bitcoin Core (Oficial, Recomendado)\n"
-    printf "  ${CYAN}[2]${RESET} Bitcoin Knots (Avançado)\n"
-    printf "  ${DIM}[0] Voltar${RESET}\n"
-    printf "\n  Opção: "
-    read -r VARIANT_OPT
-
-    local BTC_VARIANT="Core"
-    local URL=""
-    
-    if [ "$VARIANT_OPT" = "1" ]; then
-        BITCOIN_VERSION="28.1"
-        case "${GN_HW_ARCH:-unknown}" in
-            arm64)  URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
-            x86_64) URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
-            armhf)  URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-arm-linux-gnueabihf.tar.gz" ;;
-            *) step_err "Arquitetura não suportada para Core: ${GN_HW_ARCH:-?}"; press_enter_or_back; return ;;
-        esac
-    elif [ "$VARIANT_OPT" = "2" ]; then
-        BITCOIN_VERSION="25.1.knots20231115"
-        BTC_VARIANT="Knots"
-        case "${GN_HW_ARCH:-unknown}" in
-            arm64)  URL="https://bitcoinknots.org/files/25.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
-            x86_64) URL="https://bitcoinknots.org/files/25.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
-            armhf)  URL="https://bitcoinknots.org/files/25.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-arm-linux-gnueabihf.tar.gz" ;;
-            *) step_err "Arquitetura não suportada para Knots: ${GN_HW_ARCH:-?}"; press_enter_or_back; return ;;
-        esac
-    elif [ "$VARIANT_OPT" = "0" ]; then
-        return
-    else
-        step_warn "Opção inválida"
-        press_enter_or_back; return
-    fi
-
-    step_info "URL de download: $URL"
-    echo ""
-
-    if ! confirm "Confirma o download de Bitcoin ${BTC_VARIANT} ${BITCOIN_VERSION}?"; then
-        return
-    fi
-
-    local TARBALL="/tmp/bitcoin-${BITCOIN_VERSION}.tar.gz"
-
-    step_info "Baixando Bitcoin ${BTC_VARIANT}..."
-    wget -q --show-progress -O "$TARBALL" "$URL" || {
-        step_err "Falha no download"; press_enter_or_back; return
-    }
-    step_ok "Download concluído"
-
-    step_info "Extraindo..."
-    tar -xzf "$TARBALL" -C /tmp/
-    step_ok "Extraído"
-
-    step_info "Instalando binários..."
-    local BIN_DIR="/tmp/bitcoin-${BITCOIN_VERSION}/bin"
-    install -m 0755 "${BIN_DIR}/bitcoind"   /usr/local/bin/
-    install -m 0755 "${BIN_DIR}/bitcoin-cli" /usr/local/bin/
-    rm -rf "$TARBALL" "/tmp/bitcoin-${BITCOIN_VERSION}"
-
-    # Cria usuário bitcoin se não existir
-    if ! id "$BITCOIN_USER" &>/dev/null; then
-        adduser --disabled-password --gecos "" "$BITCOIN_USER"
-        step_ok "Usuário '$BITCOIN_USER' criado"
-    fi
-
-    mkdir -p "$BITCOIN_DIR"
-    chown -R "${BITCOIN_USER}:${BITCOIN_USER}" "$BITCOIN_DIR"
-
-    step_ok "Bitcoin Core ${BITCOIN_VERSION} instalado"
-    log_ok "bitcoind ${BITCOIN_VERSION} instalado — arch=${GN_HW_ARCH}"
-    press_enter_or_back
-}
-
-configurar_bitcoin() {
-    banner
-    section "⚙  Gerar bitcoin.conf"
-    echo ""
-
-    local CONF_FILE="${BITCOIN_DIR}/bitcoin.conf"
-    local PRUNE_VAL=0
-
-    # Modo pruned
-    if [ "$INSTALL_MODE" = "pruned" ]; then
-        PRUNE_VAL=550   # ~550MB mínimo exigido pelo Core
-        step_info "Modo Pruned ativo — prune=${PRUNE_VAL}"
-    fi
-
-    step_info "Criando: $CONF_FILE"
-    mkdir -p "$BITCOIN_DIR"
-
-    cat > "$CONF_FILE" << CONF
-# bitcoin.conf — Ghost Node Nation / Satoshi Node
-# Gerado em: $(date '+%F %T')
-# Modo: ${INSTALL_MODE}
-
-server=1
-daemon=1
-txindex=$([ "$INSTALL_MODE" = "full" ] && echo "1" || echo "0")
-$([ "$PRUNE_VAL" -gt 0 ] && echo "prune=${PRUNE_VAL}" || echo "# prune=0")
-
-# Rede
-listen=1
-maxconnections=40
-
-# RPC
-rpcallowip=127.0.0.1
-rpcuser=satoshi
-rpcpassword=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32 2>/dev/null || echo "changeme")
-
-# Log
-debuglogfile=${SATOSHI_DIR}/logs/bitcoin.log
-CONF
-
-    chown "${BITCOIN_USER}:${BITCOIN_USER}" "$CONF_FILE"
-    chmod 600 "$CONF_FILE"
-
-    step_ok "Configuração salva em: $CONF_FILE"
-    log_ok "bitcoin.conf gerado — modo=${INSTALL_MODE}"
-    press_enter_or_back
-}
-
-verificar_bitcoin() {
-    banner
-    section "✔  Status do Bitcoin Node"
-    echo ""
-
-    command -v bitcoind &>/dev/null \
-        && step_ok "bitcoind: $(bitcoind --version 2>/dev/null | head -1)" \
-        || step_err "bitcoind não instalado"
-
-    command -v bitcoin-cli &>/dev/null \
-        && step_ok "bitcoin-cli: disponível" \
-        || step_err "bitcoin-cli não instalado"
-
-    if bitcoin-cli getblockchaininfo &>/dev/null; then
-        step_ok "Node respondendo"
-        bitcoin-cli getblockchaininfo 2>/dev/null \
-            | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done
-    else
-        step_warn "Node não está rodando ou ainda sincronizando"
-    fi
-
-    press_enter_or_back
 }
 
 main

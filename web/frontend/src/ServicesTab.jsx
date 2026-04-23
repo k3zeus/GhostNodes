@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Network, Router, Box, Users, Share2, Terminal, PlayCircle, Loader2, CheckCircle, AlertCircle, Search, Eye, ShieldAlert, HelpCircle, UserPlus, Trash2, Key, UserCheck } from 'lucide-react';
 import PiholeTab from './PiholeTab';
+import { apiFetch } from './api';
 
 export default function ServicesTab({ token, role }) {
   const [activeSubTab, setActiveSubTab] = useState('ROUTING');
@@ -33,7 +34,7 @@ export default function ServicesTab({ token, role }) {
   const fetchDashboardUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await fetch('http://localhost:8000/api/auth/users', {
+      const res = await apiFetch('/api/auth/users', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -52,7 +53,7 @@ export default function ServicesTab({ token, role }) {
     
     setStatus('loading');
     try {
-      const res = await fetch('http://localhost:8000/api/auth/users', {
+      const res = await apiFetch('/api/auth/users', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -79,7 +80,7 @@ export default function ServicesTab({ token, role }) {
     if (!window.confirm(`Confirma exclusão do usuário ${username}?`)) return;
     
     try {
-      const res = await fetch(`http://localhost:8000/api/auth/users/${username}`, {
+      const res = await apiFetch(`/api/auth/users/${username}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -98,7 +99,7 @@ export default function ServicesTab({ token, role }) {
     
     setStatus('loading');
     try {
-      const res = await fetch('http://localhost:8000/api/system/users/linux', {
+      const res = await apiFetch('/api/system/users/linux', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -129,7 +130,7 @@ export default function ServicesTab({ token, role }) {
     setLogs(prev => prev + `\n---------------------------------------\n$ run => ${commandDisplayLabel}\n`);
 
     try {
-      const response = await fetch('http://localhost:8000/api/actions/execute', {
+      const response = await apiFetch('/api/actions/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

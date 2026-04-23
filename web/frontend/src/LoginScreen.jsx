@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Lock, User, ShieldAlert, Cpu } from 'lucide-react';
+import { apiFetch } from './api';
 
 export default function LoginScreen({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -13,7 +14,7 @@ export default function LoginScreen({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const response = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

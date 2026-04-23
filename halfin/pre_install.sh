@@ -58,12 +58,11 @@ fi
 # ── Variáveis do projeto (com fallback) ───────────────────────────────────────
 GN_USER="${GN_USER:-pleb}"
 GN_ROOT="${GN_ROOT:-/home/${GN_USER}/nodenation}"
-HALFIN_DIR="${GN_TMP_DIR:-${GN_ROOT}}/halfin"
+HALFIN_DIR="${HALFIN_DIR:-${GN_ROOT}/halfin}"
 GN_DEFAULT_PASSWORD="${GN_DEFAULT_PASSWORD:-Mudar123}"
 GN_HOSTNAME="${GN_HOSTNAME:-halfin}"
 GN_LEGACY_USER="${GN_LEGACY_USER:-orangepi}"
 PLEB_HOME="/home/${GN_USER}"
-export GN_AUTO_INSTALL="true"
 
 # ── Variáveis de rede (OrangePi Zero 3) ──────────────────────────────────────
 SSID="${HALFIN_SSID:-Halfin}"
@@ -81,7 +80,12 @@ DNSMASQ_CONF="/etc/dnsmasq.conf"
 
 # ── Estado de instalação (permite retomar) ────────────────────────────────────
 PRE_STATE="${GN_ROOT}/var/preinstall_halfin.state"
-mkdir -p "${GN_ROOT}/var" 2>/dev/null || mkdir -p "/tmp/gn_var" && PRE_STATE="/tmp/gn_preinstall.state"
+if mkdir -p "${GN_ROOT}/var" 2>/dev/null; then
+    :
+else
+    mkdir -p "/tmp/gn_var"
+    PRE_STATE="/tmp/gn_preinstall.state"
+fi
 touch "$PRE_STATE" 2>/dev/null || true
 
 _state_get() { grep -m1 "^${1}=" "$PRE_STATE" 2>/dev/null | cut -d= -f2 || echo "0"; }
@@ -466,7 +470,7 @@ etapa_orange3() {
 # ETAPA 9 — Scripts extras
 # ══════════════════════════════════════════════════════════════════════════════
 etapa_extras() {
-    section "🔧  Etapa 9 — Scripts Extras"
+    section "🔗  Etapa 9 — Scripts Extras"
     echo ""
     _run_extra "${HALFIN_DIR}/extras/fail2ban.sh"  "Fail2ban"
     echo ""
@@ -643,5 +647,4 @@ main() {
     printf "${RESET}\n"
 }
 
-set +e
 main

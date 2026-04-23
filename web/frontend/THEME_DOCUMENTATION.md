@@ -86,4 +86,4 @@ The Ghostnodes Header reserves the top right corner specifically for sovereign m
 - **Theme Switcher:** Toggles the state hook `['dark', 'light']` syncing flawlessly with `index.css`.
 - **User Avatar Node:** Future integrations will map the `<UserCircle />` icon (top right corner) to load the login/password splash-layer ensuring the System relies on physical Node Key pairing to authenticate standard routes.
 
-*Warning:* Changing core routing components requires editing `App.jsx`. Ensure you use standardized API fetching pointing to `http://localhost:8000/api/...` mapped correctly in the dashboard effects.
+*Warning:* Changing core routing components requires editing `App.jsx`. Use the shared helpers in `src/api.js` and keep every request relative to `/api/...` or to `VITE_GHOSTNODES_API_BASE` when an external API base is required.

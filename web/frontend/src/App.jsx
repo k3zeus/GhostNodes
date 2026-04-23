@@ -6,6 +6,7 @@ import ServicesTab from './ServicesTab'
 import GuardianTab from './GuardianTab'
 import PiholeTab from './PiholeTab'
 import ApplicationsTab from './ApplicationsTab'
+import { apiFetch } from './api'
 
 // Helper para decodificar JWT sem bibliotecas externas
 const parseJwt = (token) => {
@@ -44,7 +45,7 @@ function App() {
     const fetchHealth = async () => {
       const headers = { 'Authorization': `Bearer ${token}` }
       try {
-        const res = await fetch('http://localhost:8000/api/system/hardware', { headers })
+        const res = await apiFetch('/api/system/hardware', { headers })
         if (res.ok) {
           setHw(await res.json())
         } else if (res.status === 401) {
@@ -53,7 +54,7 @@ function App() {
       } catch (err) { }
       
       try {
-        const resBtc = await fetch('http://localhost:8000/api/bitcoin/status', { headers })
+        const resBtc = await apiFetch('/api/bitcoin/status', { headers })
         if (resBtc.ok) {
           setBtc(await resBtc.json())
         } else if (resBtc.status === 401) {
@@ -92,7 +93,7 @@ function App() {
     }
 
     try {
-      const res = await fetch(`http://localhost:8000/api/system/power?action=${action}`, { 
+      const res = await apiFetch(`/api/system/power?action=${action}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       })

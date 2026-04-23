@@ -1,8 +1,5 @@
 #!/bin/bash
-# ╔══════════════════════════════════════════════════════════════╗
-# ║  lib/init.sh — Ponto Único de Entrada da Biblioteca        ║
-# ║  Ghost Node Nation / nodenation                            ║
-# ╚══════════════════════════════════════════════════════════════╝
+
 [ -n "${_GN_INIT_LOADED:-}" ] && return 0
 _GN_INIT_LOADED=1
 
@@ -15,7 +12,6 @@ source "${_GN_LIB_DIR}/ui.sh"
 source "${_GN_LIB_DIR}/banner.sh"
 source "${_GN_LIB_DIR}/log.sh"
 
-# Carrega globals.env
 for _GN_G in \
     "${_GN_HALFIN_ROOT}/var/globals.env" \
     "${_GN_NODENATION_ROOT}/var/globals.env" \
@@ -23,7 +19,6 @@ for _GN_G in \
     [ -f "$_GN_G" ] && { source "$_GN_G"; break; }
 done
 
-# Fallbacks
 GN_USER="${GN_USER:-pleb}"
 GN_ROOT="${GN_ROOT:-/home/${GN_USER}/nodenation}"
 HALFIN_DIR="${HALFIN_DIR:-${_GN_HALFIN_ROOT}}"
@@ -37,18 +32,23 @@ GN_DB_FILE="${GN_DB_FILE:-${GN_DB_DIR}/wifi_scan.db}"
 GN_WIFI_LOG="${GN_WIFI_LOG:-${GN_DB_DIR}/log_scan_wifi.log}"
 
 require_root() {
-    if [ "$EUID" -ne 0 ]; then
+    if [ "${EUID:-$(id -u)}" -ne 0 ]; then
         printf "\n  ${RED}[ERRO]${RESET} Execute como root: ${BOLD}sudo bash %s${RESET}\n\n" "$0"
         exit 1
     fi
 }
 
 require_cmd() {
-    local CMD="$1" MSG="${2:-Comando '$1' não encontrado}"
-    command -v "$CMD" &>/dev/null || { step_err "$MSG"; log_err "ausente: $CMD"; exit 1; }
+    local cmd="$1"
+    local msg="${2:-Comando '$1' nao encontrado}"
+    command -v "$cmd" >/dev/null 2>&1 || {
+        step_err "$msg"
+        log_err "ausente: $cmd"
+        exit 1
+    }
 }
 
 load_hw_compat() {
-    local HW="${GN_HW_COMPAT_FILE:-${GN_ROOT}/var/hardware.env}"
-    [ -f "$HW" ] && source "$HW" || true
+    local hw="${GN_HW_COMPAT_FILE:-${GN_ROOT}/var/hardware.env}"
+    [ -f "$hw" ] && source "$hw" || true
 }

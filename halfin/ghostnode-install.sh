@@ -17,7 +17,9 @@ _GN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ "$_GN_ROOT" == */tools || "$_GN_ROOT" == */docker ]] && _GN_ROOT="$(dirname "$_GN_ROOT")"
 source "${_GN_ROOT}/lib/init.sh"
 
-HALFIN_DIR="/home/pleb/halfin"
+GN_USER="${GN_USER:-pleb}"
+GN_ROOT="/home/${GN_USER}/nodenation"
+HALFIN_DIR="${GN_ROOT}/halfin"
 INSTALL_DIR="/usr/local/bin"
 CMD_NAME="ghostnode"
 MOTD_SCRIPT="/etc/profile.d/ghostnode-motd.sh"
@@ -82,7 +84,7 @@ cat > "$MOTD_SCRIPT" << 'MOTD'
 # ghostnode MOTD — exibido em todo login interativo
 [[ $- != *i* ]] && return 0
 HALFIN_DIR="/home/pleb/halfin"
-[ -f "${HALFIN_DIR}/lib/init.sh" ] && source "${HALFIN_DIR}/lib/init.sh" && print_motd
+[ -f "/home/pleb/nodenation/halfin/lib/init.sh" ] && source "/home/pleb/nodenation/halfin/lib/init.sh" && print_motd
 MOTD
 
 chmod +x "$MOTD_SCRIPT"

@@ -48,7 +48,7 @@ GN_TMP_HW="${GN_TMP_VAR}/hardware.env"
 GN_TMP_STATE="${GN_TMP_VAR}/install.state"
 
 GN_REPO_URL="${GN_REPO_URL:-https://github.com/k3zeus/GhostNodes/archive/refs/heads/dev.tar.gz}"
-GN_REPO_DIR_NAME="GhostNodes-dev"
+GN_REPO_DIR_NAME="${GN_REPO_DIR_NAME:-GhostNodes-dev}"
 
 # Lib — tenta carregar se o projeto já estiver instalado
 LIB_DIR="${GN_ROOT}/halfin/lib"
@@ -253,29 +253,32 @@ check_compat() {
     local PROJECT="$1"
     _COMPAT_MSG=""; _COMPAT_WARNINGS=(); _COMPAT_MODE=""
     local RC=0
+    local hw_arch="${GN_HW_ARCH:-unknown}"
+    local hw_ram="${GN_HW_RAM_GB:-0}"
+    local hw_disk="${GN_HW_DISK_GB:-0}"
 
     case "$PROJECT" in
         halfin)
-            if [ "$GN_HW_ARCH" != "arm64" ]; then
-                _COMPAT_MSG="Halfin é otimizado para arm64. Arch atual: ${GN_HW_ARCH}."
+            if [ "$hw_arch" != "arm64" ]; then
+                _COMPAT_MSG="Halfin é otimizado para arm64. Arch atual: ${hw_arch}."
                 _COMPAT_WARNINGS+=("Hardware não é arm64 — funcionalidade limitada")
                 RC=1
             fi
             ;;
         satoshi)
-            if [ "$GN_HW_RAM_GB" -lt 1 ]; then
-                _COMPAT_MSG="RAM insuficiente (${GN_HW_RAM_GB}GB). Mínimo: 1GB."
+            if [ "$hw_ram" -lt 1 ]; then
+                _COMPAT_MSG="RAM insuficiente (${hw_ram}GB). Mínimo: 1GB."
                 RC=2
-            elif [ "$GN_HW_DISK_GB" -ge 400 ] && [ "$GN_HW_RAM_GB" -ge 2 ]; then
+            elif [ "$hw_disk" -ge 400 ] && [ "$hw_ram" -ge 2 ]; then
                 _COMPAT_MODE="full"
                 _COMPAT_MSG="Hardware compatível com Full Node Bitcoin."
-            elif [ "$GN_HW_DISK_GB" -ge 10 ]; then
+            elif [ "$hw_disk" -ge 10 ]; then
                 _COMPAT_MODE="pruned"
-                _COMPAT_MSG="Disco ${GN_HW_DISK_GB}GB — insuficiente para Full Node (400GB+)."
+                _COMPAT_MSG="Disco ${hw_disk}GB — insuficiente para Full Node (400GB+)."
                 _COMPAT_WARNINGS+=("Será instalado como Pruned Node (~10GB)")
                 RC=1
             else
-                _COMPAT_MSG="Disco insuficiente (${GN_HW_DISK_GB}GB). Mínimo: 10GB."
+                _COMPAT_MSG="Disco insuficiente (${hw_disk}GB). Mínimo: 10GB."
                 RC=2
             fi
             ;;
@@ -642,10 +645,16 @@ _executar_pre_install() {
     printf "  ${DIM}Hardware: %s (%s)${RESET}\n" "${GN_HW_MODEL:-?}" "${GN_HW_ARCH:-?}"
     echo ""
     printf "  ${YELLOW}${BOLD}O pre_install.sh irá:${RESET}\n"
-    printf "  ${BULLET} Criar o usuário '${GN_USER}' com senha padrão\n"
-    printf "  ${BULLET} Atualizar sources.list e o sistema\n"
-    printf "  ${BULLET} Instalar ferramentas e configurar rede/AP\n"
-    printf "  ${BULLET} Remover o usuário legado (orangepi) ao final\n"
+    printf "  ${BULLET} Criar o usuário '${GN_USER}' quando necessário\n"
+    if [ "$PROJECT" = "halfin" ]; then
+        printf "  ${BULLET} Atualizar sources.list, ferramentas e rede/AP\n"
+        printf "  ${BULLET} Configurar extras do Halfin e dashboard web\n"
+        printf "  ${BULLET} Remover o usuário legado (orangepi) ao final\n"
+    elif [ "$PROJECT" = "satoshi" ]; then
+        printf "  ${BULLET} Preparar dependências base do Satoshi Node\n"
+        printf "  ${BULLET} Promover o staging e executar o instalador Bitcoin\n"
+        printf "  ${BULLET} Configurar bitcoin.conf, RPC e systemd\n"
+    fi
     echo ""
     printf "  ${RED}Após criar o usuário '${GN_USER}', o projeto será\n"
     printf "  movido de /tmp para /home/${GN_USER}/nodenation/${RESET}\n"
@@ -683,13 +692,16 @@ _executar_pre_install() {
     # Agora que o usuário foi criado, move staging → GN_ROOT
     if id "$GN_USER" &>/dev/null; then
         instalar_projeto
-        # Levanta o Swarm, Instala Docker Engine, Gera senhas e sobe o compose
-        if [ -f "${GN_ROOT}/halfin/docker/docker.sh" ]; then
+        if [ "$PROJECT" = "halfin" ] && [ -f "${GN_ROOT}/halfin/docker/docker.sh" ]; then
             step_info "Inicializando instalação do Docker e Orchestration..."
             export GN_AUTO_INSTALL="true"
             export AUTO_INSTALL="true"
-            # O docker.sh já faz o chdir necessário lá dentro e levanta o compose e cockpit
             bash "${GN_ROOT}/halfin/docker/docker.sh" || step_warn "Aviso: Falha na orquestração pelo docker.sh"
+        elif [ "$PROJECT" = "satoshi" ] && [ -f "${GN_ROOT}/satoshi/install.sh" ]; then
+            step_info "Inicializando instalação automatizada do Satoshi Node..."
+            export GN_AUTO_INSTALL="true"
+            export SATOSHI_VARIANT="${SATOSHI_VARIANT:-core}"
+            bash "${GN_ROOT}/satoshi/install.sh" || step_warn "Aviso: Falha na instalação automatizada do Satoshi Node"
         fi
     else
         step_warn "Usuário '${GN_USER}' não foi criado — projeto permanece em ${GN_TMP_DIR}"

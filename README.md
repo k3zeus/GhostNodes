@@ -1,49 +1,49 @@
-# 👻 GhostNodes
-> **Sovereign Personal Cloud & Bitcoin Node Orchestrator**
-> *Orquestrador de Nuvem Pessoal Soberana e Nodes de Bitcoin*
+# GhostNodes
 
----
+Orquestrador monorepo para instalacao soberana via `curl | bash`, dashboard TUI padronizado e camada web de controle para subprojetos de infraestrutura.
 
-## 🌐 English
-GhostNodes is a professional-grade, lightweight orchestration platform designed for ARM64 (Orange Pi, Raspberry Pi) and x86_64 systems. It transforms your hardware into a sovereign digital fortress, hosting privacy-focused services and Bitcoin nodes with ease.
+## Estado atual
 
-### ✨ Key Features
-- **Sovereign Cloud**: Integrated Pi-hole, Wireguard, Syncthing, and Nextcloud.
-- **Bitcoin Ready**: One-click deployment for Pruned/Full Bitcoin Nodes (Satoshi Node).
-- **Lightweight UI**: Interactive Bash-based dashboard with real-time hardware monitoring.
-- **Security-First**: Automated firewalling, reverse proxies, and TTY-secure input handling.
+- `nodenation`: bootstrap manager e ponto de entrada principal.
+- `halfin/`: node de networking/AP router com fluxo automatizado e extras.
+- `satoshi/`: node Bitcoin Core / Knots com pre-install, install e stack docker auxiliar.
+- `web/`: backend FastAPI + frontend React para controle remoto.
+- `tests/`: validacoes de registry, instalacao e cenarios E2E Debian Bookworm.
 
-### 🚀 Quick Start
-Run the following command on a fresh Debian/Ubuntu installation:
+## Fluxo recomendado
+
+Em hosts Debian/Ubuntu limpos:
+
 ```bash
 sudo curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
 ```
 
----
+Uso local no repo:
 
-## 🇧🇷 Português
-O GhostNodes é uma plataforma de orquestração profissional e leve, projetada para sistemas ARM64 (Orange Pi, Raspberry Pi) e x86_64. Transforme seu hardware em uma fortaleza digital soberana, hospedando serviços focados em privacidade e nodes de Bitcoin com facilidade.
-
-### ✨ Funcionalidades Principais
-- **Nuvem Soberana**: Pi-hole, Wireguard, Syncthing e Nextcloud integrados.
-- **Pronto para Bitcoin**: Instalação simplificada de Nodes Bitcoin (Pruned/Full) via Satoshi Node.
-- **Interface Leve**: Dashboard interativo via terminal (Bash) com monitoramento de hardware.
-- **Segurança Nativa**: Firewall automatizado, proxies reversos e tratamento seguro de TTY.
-
-### 🚀 Início Rápido
-Execute o comando abaixo em uma instalação limpa do Debian/Ubuntu:
 ```bash
-sudo curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
+sudo bash ./nodenation
 ```
 
----
+## Padrao do projeto
 
-## 📚 Technical Documentation (v0.15 Beta)
-Detailed technical documentation and development standards:
-- [**Architecture**](./ARCHITECTURE.md): System design, networking, and security layers.
-- [**Project Brief**](./PROJECT_BRIEF.md): Mission, vision, and roadmap (Bilingual EN/PT).
-- [**Tech Patterns**](./TECH_PATTERN.md): Development standards and technology stack.
-- [**Web Setup**](./web/WEBAPP_SETUP.md): Guide to install and run the Dashboard.
+- Bootstrap unico pelo `nodenation`
+- Subprojetos com `pre_install.sh`, `install.sh`, `docker/`, `README`
+- TUI com navegacao padronizada: `(1) ...`, `(q) Exit`, `(0) Back`
+- Variaveis globais prefixadas com `GN_`
+- Shell em `set -euo pipefail`
+- Prova antes de declarar pronto: testes, build e checks reproduziveis
 
----
-**Maintained by k3zeus** | *Sovereignty starts at hardware.*
+## Documentacao
+
+- `ARCHITECTURE.md`
+- `PROJECT_BRIEF.md`
+- `TECH_PATTERN.md`
+- `docs/SUBPROJECT_BLUEPRINT.md`
+- `web/WEBAPP_SETUP.md`
+
+## Validacao
+
+- Frontend: `cd web/frontend && npm run build`
+- Backend: `python -m py_compile web/backend/main.py web/backend/routers/*.py`
+- Shell tests: `bash tests/test_auto_registry.sh`, `bash tests/test_halfin_install.sh`, `bash tests/test_satoshi_install.sh`
+- Compose parse: `docker compose -f web/docker-compose.yml config`

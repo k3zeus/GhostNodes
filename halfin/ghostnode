@@ -15,7 +15,10 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # CONFIGURAÇÃO GLOBAL
 # ══════════════════════════════════════════════════════════════════════════════
-HALFIN_DIR="/home/pleb/nodenation/halfin"
+GN_USER="${SUDO_USER:-$USER}"
+[ "$GN_USER" = "root" ] && GN_USER="pleb"
+GN_ROOT="/home/${GN_USER}/nodenation"
+HALFIN_DIR="${GN_ROOT}/halfin"
 TOOLS_DIR="$HALFIN_DIR/tools"
 DOCKER_DIR="$HALFIN_DIR/docker"
 LOG_DIR="$HALFIN_DIR/logs"
@@ -23,8 +26,15 @@ LOG_FILE="$LOG_DIR/ghostnode_$(date +%Y%m%d).log"
 
 
 # ── Biblioteca modular do projeto ───────────────────────────────────────────
-_GN_ROOT="$HALFIN_DIR"
-source "${_GN_ROOT}/lib/init.sh"
+_GN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${GN_ROOT}/halfin/lib/init.sh" ]; then
+    source "${GN_ROOT}/halfin/lib/init.sh"
+elif [ -f "${_GN_ROOT}/lib/init.sh" ]; then
+    source "${_GN_ROOT}/lib/init.sh"
+else
+    echo -e "\e[31m[!] Erro Critico: lib/init.sh nao encontrada.\e[0m"
+    exit 1
+fi
 # ══════════════════════════════════════════════════════════════════════════════
 # HELP — exibido quando chamado com --help ou -h
 # ══════════════════════════════════════════════════════════════════════════════

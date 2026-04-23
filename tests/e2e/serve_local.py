@@ -6,7 +6,18 @@ import threading
 
 def create_tar():
     print("Creating beta.tar.gz...")
-    exclude_dirs = {'.agent', '.git', '.venv', 'node_modules', 'tests'}
+    exclude_dirs = {
+        '.agent',
+        '.git',
+        '.venv',
+        'node_modules',
+        'tests',
+        'Archive',
+        'Memory',
+        'dist',
+        '__pycache__',
+        'venv',
+    }
     
     with tarfile.open("beta.tar.gz", "w:gz") as tar:
         for root, dirs, files in os.walk("."):
@@ -22,7 +33,7 @@ def create_tar():
     print("Created beta.tar.gz!")
 
 def start_server():
-    PORT = 8080
+    PORT = int(os.environ.get("SERVE_LOCAL_PORT", "18080"))
     Handler = http.server.SimpleHTTPRequestHandler
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
         print(f"Serving at port {PORT}")
