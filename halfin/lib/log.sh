@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[ -n "${_GN_LOG_LOADED:-}" ] && return 0
+[ -n "${_GN_LOG_LOADED:-}" ] && declare -F log_msg >/dev/null 2>&1 && return 0
 _GN_LOG_LOADED=1
 
 _GN_HALFIN_DIR="${HALFIN_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"

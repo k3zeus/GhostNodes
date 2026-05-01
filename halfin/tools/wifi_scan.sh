@@ -20,6 +20,16 @@ DB_DIR="${GN_DB_DIR}"
 DB="$DB_DIR/wifi_scan.db"
 LOG="$DB_DIR/log_scan_wifi.log"
 
+if ! command -v sqlite3 >/dev/null 2>&1; then
+    echo -e "${RED}[ERRO]${RESET} sqlite3 não encontrado. Instale o pacote sqlite3."
+    exit 1
+fi
+
+if ! command -v nmcli >/dev/null 2>&1; then
+    echo -e "${RED}[ERRO]${RESET} nmcli não encontrado. Instale o NetworkManager."
+    exit 1
+fi
+
 mkdir -p "$DB_DIR"
 chmod 700 "$DB_DIR"
 touch "$LOG"

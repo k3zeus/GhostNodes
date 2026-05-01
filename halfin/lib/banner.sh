@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[ -n "${_GN_BANNER_LOADED:-}" ] && return 0
+[ -n "${_GN_BANNER_LOADED:-}" ] && [ -n "${BOLD:-}" ] && declare -F banner >/dev/null 2>&1 && return 0
 _GN_BANNER_LOADED=1
 
 _GN_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

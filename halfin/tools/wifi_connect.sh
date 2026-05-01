@@ -24,6 +24,11 @@ DB_DIR="${GN_DB_DIR}"
 DB="$DB_DIR/wifi_scan.db"
 LOG="$DB_DIR/log_scan_wifi.log"
 
+if ! command -v sqlite3 >/dev/null 2>&1; then
+    echo -e "${RED}[ERRO]${RESET} sqlite3 não encontrado. Instale o pacote sqlite3."
+    exit 1
+fi
+
 # ─── Cores ANSI ───────────────────────────────────────────────────────────────
 
 # ─── Funções auxiliares ───────────────────────────────────────────────────────

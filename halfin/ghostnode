@@ -146,6 +146,11 @@ run_script() {
     echo ""
     sep
     env \
+        -u _GN_INIT_LOADED \
+        -u _GN_COLORS_LOADED \
+        -u _GN_UI_LOADED \
+        -u _GN_BANNER_LOADED \
+        -u _GN_LOG_LOADED \
         GN_ROOT="$GN_ROOT" \
         HALFIN_DIR="$HALFIN_DIR" \
         TOOLS_DIR="$TOOLS_DIR" \
