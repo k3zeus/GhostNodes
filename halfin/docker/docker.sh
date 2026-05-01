@@ -15,36 +15,11 @@ echo "### You would like to install the services: Docker and Portainer? ###"
 echo "#"
 echo "Install? [y/N]"
 
-if [ "${GN_AUTO_INSTALL:-false}" = "true" ] || [ "${AUTO_INSTALL:-false}" = "true" ]; then
-    echo "Auto-install enabled. Proceeding quietly..."
-    resp="y"
-    cockpit="n"
-else
-    read resp
-fi
+read -r resp
 
 if [ "$resp" != "y" ] && [ "$resp" != "Y" ] && [ "$resp" != "s" ] && [ "$resp" != "S" ]; then
-
-echo ""
-echo "####### Install Web Interface? (Cockpit) ###"
-echo "#"
-echo "Install? [y/N]"
-        if [ "${GN_AUTO_INSTALL:-false}" != "true" ]; then
-            read cockpit
-        fi
-        if [ "$cockpit" != "y" ] && [ "$cockpit" != "Y" ] && [ "$cockpit" != "s" ] && [ "$cockpit" != "S" ]; then
-        exit 0
-        fi
-                #######
-                echo "###### Starting Cockpit Install #######"
-
-                sudo apt install cockpit -y
-                sudo systemctl enable cockpit
-                sudo systemctl start cockpit
-
-                echo "###### Acess the Web Interface in: http://10.21.21.1:9090 ######"
-                exit 0
-
+    echo "Install skipped."
+    exit 0
 fi
 
 # Add Docker's official GPG key:
@@ -130,12 +105,9 @@ fi
 echo "Deseja instalar a interface Web? (Cockpit)
                 #
                 Instalar? [y/N]"
-        if [ "${GN_AUTO_INSTALL:-false}" = "true" ] || [ "${AUTO_INSTALL:-false}" = "true" ]; then
-            cockpit="n"
-        else
-            read cockpit
-        fi
+        read -r cockpit
         if [ "$cockpit" != "y" ] && [ "$cockpit" != "Y" ] && [ "$cockpit" != "s" ] && [ "$cockpit" != "S" ]; then
+        echo "Cockpit skipped."
         exit 0
         fi
 
