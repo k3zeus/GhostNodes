@@ -36,3 +36,11 @@ ghostnodes_backup/
 !**/pass.txt
 **/*.env
 !**/*.env.example
+.gstack/
+
+# Syncthing / merge leftovers
+**/*.sync-conflict-*
+/.sync-conflict-*
+
+# Local generated secrets
+**/pass_auto_generated.txt
