@@ -48,8 +48,6 @@ docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always -v /va
 #
 sudo systemctl enable docker
 ######
-echo "########### Orquestrando o Resto dos Serviços (Docker Compose) ..."
-#
 COMPOSE_FILE="${HALFIN_DIR}/docker/docker-compose.yml"
 COMPOSE_DIR="$(dirname "$COMPOSE_FILE")"
 
@@ -91,25 +89,30 @@ EOF
     sleep 3
 fi
 
-if [[ "$HALFIN_DIR" == *"/tmp/"* ]]; then
-    echo "Staging mode: Docker compose será iniciado pelo orquestrador principal apos mover os arquivos"
-else
+echo ""
+echo "########### Orquestrando o Resto dos Serviços (Docker Compose) ..."
+echo "Subir os containers agora? [y/N]"
+read -r compose_resp
+
+if [ "$compose_resp" = "y" ] || [ "$compose_resp" = "Y" ] || [ "$compose_resp" = "s" ] || [ "$compose_resp" = "S" ]; then
     if [ -f "$COMPOSE_FILE" ]; then
         (cd "$COMPOSE_DIR" && docker compose up -d)
     else
         echo "Aviso: docker-compose.yml não encontrado em $COMPOSE_FILE"
     fi
+else
+    echo "Compose skipped."
 fi
 ########
 
-echo "Deseja instalar a interface Web? (Cockpit)
-                #
-                Instalar? [y/N]"
-        read -r cockpit
-        if [ "$cockpit" != "y" ] && [ "$cockpit" != "Y" ] && [ "$cockpit" != "s" ] && [ "$cockpit" != "S" ]; then
-        echo "Cockpit skipped."
-        exit 0
-        fi
+echo ""
+echo "Deseja instalar a interface Web? (Cockpit)"
+echo "Instalar? [y/N]"
+read -r cockpit
+if [ "$cockpit" != "y" ] && [ "$cockpit" != "Y" ] && [ "$cockpit" != "s" ] && [ "$cockpit" != "S" ]; then
+    echo "Cockpit skipped."
+    exit 0
+fi
 
 echo "######### Instalação do Cockpit ##########"
 
