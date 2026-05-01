@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[ -n "${_GN_COLORS_LOADED:-}" ] && return 0
+[ -n "${_GN_COLORS_LOADED:-}" ] && [ -n "${BOLD:-}" ] && return 0
 _GN_COLORS_LOADED=1
 
 RESET="\e[0m"

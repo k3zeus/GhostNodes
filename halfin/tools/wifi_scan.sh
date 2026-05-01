@@ -6,11 +6,15 @@ set -euo pipefail
 # ── Biblioteca modular do projeto ───────────────────────────────────────────
 _GN_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Resolve raiz do subprojeto (sobe até encontrar lib/)
-_GN_FIND="$_GN_SELF"
-while [ ! -d "${_GN_FIND}/lib" ] && [ "$_GN_FIND" != "/" ]; do
-    _GN_FIND="$(dirname "$_GN_FIND")"
-done
-source "${_GN_FIND}/lib/init.sh"
+if [ -n "${LIB_DIR:-}" ] && [ -f "${LIB_DIR}/init.sh" ]; then
+    source "${LIB_DIR}/init.sh"
+else
+    _GN_FIND="$_GN_SELF"
+    while [ ! -d "${_GN_FIND}/lib" ] && [ "$_GN_FIND" != "/" ]; do
+        _GN_FIND="$(dirname "$_GN_FIND")"
+    done
+    source "${_GN_FIND}/lib/init.sh"
+fi
 
 DB_DIR="${GN_DB_DIR}"
 DB="$DB_DIR/wifi_scan.db"

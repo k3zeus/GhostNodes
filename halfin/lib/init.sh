@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[ -n "${_GN_INIT_LOADED:-}" ] && return 0
+[ -n "${_GN_INIT_LOADED:-}" ] && [ -n "${BOLD:-}" ] && declare -F sep >/dev/null 2>&1 && return 0
 _GN_INIT_LOADED=1
 
 _GN_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

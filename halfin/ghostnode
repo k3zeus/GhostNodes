@@ -15,26 +15,40 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # CONFIGURAÇÃO GLOBAL
 # ══════════════════════════════════════════════════════════════════════════════
-GN_USER="${SUDO_USER:-$USER}"
+GN_USER="${SUDO_USER:-${USER:-pleb}}"
 [ "$GN_USER" = "root" ] && GN_USER="pleb"
-GN_ROOT="/home/${GN_USER}/nodenation"
-HALFIN_DIR="${GN_ROOT}/halfin"
-TOOLS_DIR="$HALFIN_DIR/tools"
-DOCKER_DIR="$HALFIN_DIR/docker"
-LOG_DIR="$HALFIN_DIR/logs"
-LOG_FILE="$LOG_DIR/ghostnode_$(date +%Y%m%d).log"
+GN_ROOT="${GN_ROOT:-/home/${GN_USER}/nodenation}"
 
 
 # ── Biblioteca modular do projeto ───────────────────────────────────────────
-_GN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "${GN_ROOT}/halfin/lib/init.sh" ]; then
-    source "${GN_ROOT}/halfin/lib/init.sh"
-elif [ -f "${_GN_ROOT}/lib/init.sh" ]; then
-    source "${_GN_ROOT}/lib/init.sh"
-else
+_GN_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_GN_INIT_FILE=""
+for _GN_CANDIDATE in \
+    "${GN_ROOT}/halfin/lib/init.sh" \
+    "/home/pleb/nodenation/halfin/lib/init.sh" \
+    "${_GN_SCRIPT_DIR}/lib/init.sh" \
+    "${_GN_SCRIPT_DIR}/halfin/lib/init.sh" \
+    "${_GN_SCRIPT_DIR}/../halfin/lib/init.sh"; do
+    if [ -f "$_GN_CANDIDATE" ]; then
+        _GN_INIT_FILE="$_GN_CANDIDATE"
+        break
+    fi
+done
+
+if [ -z "$_GN_INIT_FILE" ]; then
     echo -e "\e[31m[!] Erro Critico: lib/init.sh nao encontrada.\e[0m"
     exit 1
 fi
+
+LIB_DIR="$(cd "$(dirname "$_GN_INIT_FILE")" && pwd)"
+HALFIN_DIR="$(dirname "$LIB_DIR")"
+GN_ROOT="$(dirname "$HALFIN_DIR")"
+TOOLS_DIR="$HALFIN_DIR/tools"
+DOCKER_DIR="$HALFIN_DIR/docker"
+LOG_DIR="${LOG_DIR:-$HALFIN_DIR/logs}"
+LOG_FILE="$LOG_DIR/ghostnode_$(date +%Y%m%d).log"
+
+source "$_GN_INIT_FILE"
 # ══════════════════════════════════════════════════════════════════════════════
 # HELP — exibido quando chamado com --help ou -h
 # ══════════════════════════════════════════════════════════════════════════════
@@ -75,6 +89,20 @@ show_help() {
 # ══════════════════════════════════════════════════════════════════════════════
 # FUNÇÕES DE UI
 # ══════════════════════════════════════════════════════════════════════════════
+
+ghostnode_quit() {
+    echo ""
+    printf "  ${DIM}Exiting ghostnode.${RESET}\n"
+    exit 0
+}
+
+menu_read() {
+    printf "  Opção: "
+    read -r OPT
+    case "${OPT:-}" in
+        q|Q) ghostnode_quit ;;
+    esac
+}
 
 step_ok()   { printf "  ${CHECK} ${WHITE}%s${RESET}\n" "$1"; log_msg "OK" "$1"; }
 
@@ -117,7 +145,17 @@ run_script() {
 
     echo ""
     sep
-    bash "$SCRIPT"
+    env \
+        GN_ROOT="$GN_ROOT" \
+        HALFIN_DIR="$HALFIN_DIR" \
+        TOOLS_DIR="$TOOLS_DIR" \
+        DOCKER_DIR="$DOCKER_DIR" \
+        LOG_DIR="$LOG_DIR" \
+        LIB_DIR="$LIB_DIR" \
+        GN_DB_DIR="${GN_DB_DIR:-$HALFIN_DIR/var}" \
+        GN_DB_FILE="${GN_DB_FILE:-$HALFIN_DIR/var/wifi_scan.db}" \
+        GN_WIFI_LOG="${GN_WIFI_LOG:-$HALFIN_DIR/var/log_scan_wifi.log}" \
+        bash "$SCRIPT"
     local RC=$?
     sep
     echo ""
@@ -147,11 +185,10 @@ menu_sistema() {
         printf "  ${BOLD}[1.4]${RESET}  Updates\n"
         echo ""
         sep
-        printf "  ${BOLD}[0]${RESET}   Back\n"
+        printf "  ${BOLD}[0]${RESET}   Back    ${BOLD}[q]${RESET}   Quit\n"
         sep
         echo ""
-        printf "  Opção: "
-        read -r OPT
+        menu_read
         case "$OPT" in
             1.1|11|1) menu_sistema_verificacao ;;
             1.2|12|2) menu_sistema_instalacoes ;;
@@ -408,11 +445,10 @@ menu_rede() {
         printf "  ${BOLD}[2.3]${RESET}  Interface Verification & Diagnosis\n"
         echo ""
         sep
-        printf "  ${BOLD}[0]${RESET}   Back\n"
+        printf "  ${BOLD}[0]${RESET}   Back    ${BOLD}[q]${RESET}   Quit\n"
         sep
         echo ""
-        printf "  Opção: "
-        read -r OPT
+        menu_read
         case "$OPT" in
             2.1|21|1) menu_rede_status ;;
             2.2|22|2) menu_rede_conectar ;;
@@ -569,11 +605,10 @@ menu_docker() {
         printf "  ${BOLD}[3.3]${RESET}  Configurations (.env and containers)\n"
         echo ""
         sep
-        printf "  ${BOLD}[0]${RESET}   Back\n"
+        printf "  ${BOLD}[0]${RESET}   Back    ${BOLD}[q]${RESET}   Quit\n"
         sep
         echo ""
-        printf "  Opção: "
-        read -r OPT
+        menu_read
         case "$OPT" in
             3.1|31|1) menu_docker_verificacao ;;
             3.2|32|2) menu_docker_instalacao ;;
