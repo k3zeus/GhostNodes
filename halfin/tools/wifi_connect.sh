@@ -9,6 +9,7 @@ set -euo pipefail
 
 # ── Biblioteca modular do projeto ───────────────────────────────────────────
 _GN_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+unset _GN_INIT_LOADED _GN_COLORS_LOADED _GN_UI_LOADED _GN_BANNER_LOADED _GN_LOG_LOADED
 # Resolve raiz do subprojeto (sobe até encontrar lib/)
 if [ -n "${LIB_DIR:-}" ] && [ -f "${LIB_DIR}/init.sh" ]; then
     source "${LIB_DIR}/init.sh"
@@ -67,8 +68,14 @@ select_interface() {
 
     echo ""
     echo -e "  ${DIM}─────────────────────────────────────${RESET}"
-    printf "  Escolha a interface [1-%d]: " "${#IFACES[@]}"
+    printf "  Escolha a interface [1-%d] ou [q] para sair: " "${#IFACES[@]}"
     read -r CHOICE
+
+    case "$CHOICE" in
+        q|Q)
+            exit 0
+            ;;
+    esac
 
     if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || (( CHOICE < 1 || CHOICE > ${#IFACES[@]} )); then
         echo -e "${RED}  Opção inválida.${RESET}"
