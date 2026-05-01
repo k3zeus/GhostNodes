@@ -779,14 +779,24 @@ menu_docker_configuracoes() {
                 sep
                 COMPOSE_DIR=$(dirname "$COMPOSE_FILE")
                 cd "$COMPOSE_DIR"
-                [ -n "$ENV_FILE" ] \
-                    && docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d 2>&1 \
-                        | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done \
-                    || docker compose -f "$COMPOSE_FILE" up -d 2>&1 \
+                set -o pipefail
+                if [ -n "$ENV_FILE" ]; then
+                    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d 2>&1 \
                         | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done
+                else
+                    docker compose -f "$COMPOSE_FILE" up -d 2>&1 \
+                        | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done
+                fi
+                RC=$?
+                set +o pipefail
                 sep
-                step_ok "docker compose up -d executado"
-                log_msg "OK" "docker compose up -d em $COMPOSE_FILE"
+                if [ "$RC" -eq 0 ]; then
+                    step_ok "docker compose up -d executado"
+                    log_msg "OK" "docker compose up -d em $COMPOSE_FILE"
+                else
+                    step_err "docker compose up -d falhou (RC=$RC)"
+                    log_msg "ERR" "docker compose up -d falhou em $COMPOSE_FILE RC=$RC"
+                fi
             fi
         fi
     else
