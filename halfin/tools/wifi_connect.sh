@@ -283,9 +283,22 @@ connect_to() {
             pwd_sql="${PASSWORD//\'/\'\'}"
             bssid_sql="${bssid//\'/\'\'}"
             ssid_sql="${ssid//\'/\'\'}"
+            mode_sql="Infra"
+            chan_sql="${chan:-NULL}"
+            security_sql="${security//\'/\'\'}"
+            if [[ ! "$chan_sql" =~ ^[0-9]+$ ]]; then
+                chan_sql="NULL"
+            fi
             sqlite3 "$DB" \
-                "UPDATE networks SET password='${pwd_sql}', last_seen=CURRENT_TIMESTAMP
-                 WHERE bssid='${bssid_sql}' OR ssid='${ssid_sql}';"
+                "INSERT INTO networks (bssid, ssid, mode, channel, security, password, last_seen)
+                 VALUES ('${bssid_sql}', '${ssid_sql}', '${mode_sql}', ${chan_sql}, '${security_sql}', '${pwd_sql}', CURRENT_TIMESTAMP)
+                 ON CONFLICT(bssid) DO UPDATE SET
+                    ssid = excluded.ssid,
+                    mode = excluded.mode,
+                    channel = excluded.channel,
+                    security = excluded.security,
+                    password = excluded.password,
+                    last_seen = CURRENT_TIMESTAMP;"
             echo -e "  ${GREEN}✔ Senha salva no banco.${RESET}"
         fi
     fi
