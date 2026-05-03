@@ -57,35 +57,25 @@ SQL
 
 # ─── Executa scan e extrai campos por posição de coluna ───────────────────────
 # O nmcli sem -t imprime tabela com colunas de largura fixa.
-# Usamos -t com --escape no e separador customizado via sed para isolar o BSSID
-# (que contém ':') dos demais campos.
-#
-# Formato com -t --escape no:
-#   AA:BB:CC:DD:EE:FF:NomeRede:Infra:6:WPA2
-#   O BSSID ocupa sempre os primeiros 17 caracteres (XX:XX:XX:XX:XX:XX)
-#   seguido de ':' separando os demais campos.
-
-nmcli --escape no -t -f BSSID,SSID,MODE,CHAN,SECURITY device wifi list \
+# Usa saída com delimitador estável para evitar parsing frágil do nmcli
+# Formato: BSSID|SSID|MODE|CHAN|SECURITY
+nmcli --escape no -t -m multiline -f BSSID,SSID,MODE,CHAN,SECURITY device wifi list \
   2>>"$LOG" \
-  | grep -E '^[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:' \
-  | awk -F'\t' 'BEGIN { OFS="|" }
-    {
-      # BSSID são sempre os primeiros 17 chars
-      bssid   = substr($0, 1, 17)
-      rest    = substr($0, 19)          # pula o ":" após o BSSID
-
-      # Divide o restante em até 4 partes pelo ":"
-      n = split(rest, f, ":")
-      ssid     = (n >= 1 ? f[1] : "")
-      mode     = (n >= 2 ? f[2] : "")
-      chan     = (n >= 3 ? f[3] : "")
-      security = (n >= 4 ? f[4] : "")
-
-      # SSID oculto vira string vazia
-      if (ssid == "--") ssid = ""
-
-      print bssid, ssid, mode, chan, security
-    }' \
+  | awk -F': ' '
+      BEGIN { OFS="|" }
+      /^BSSID:/    { bssid=$2; next }
+      /^SSID:/     { ssid=$2; if (ssid=="--") ssid=""; next }
+      /^MODE:/     { mode=$2; next }
+      /^CHAN:/     { chan=$2; next }
+      /^SECURITY:/ {
+          security=$2
+          if (bssid ~ /^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$/) {
+              print bssid, ssid, mode, chan, security
+          }
+          bssid=ssid=mode=chan=security=""
+          next
+      }
+    ' \
   > "$SCAN_TMP"
 
 # Remove carriage returns (WSL / ambientes híbridos)

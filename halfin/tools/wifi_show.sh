@@ -80,6 +80,11 @@ printf "  ${BOLD}${CYAN}%-4s %-19s %-28s %-6s %-5s %-14s %-12s %-20s${RESET}\n" 
 echo -e "${DIM}  ─────────────────────────────────────────────────────────────────────────────────────────────────${RESET}"
 
 # ─── Query principal ──────────────────────────────────────────────────────────
+case "$SORT" in
+    last_seen|ssid|channel|security|bssid) SORT_BY="$SORT" ;;
+    *) SORT_BY="last_seen" ;;
+esac
+
 sqlite3 -separator $'\x01' "$DB" \
     "SELECT id, bssid,
             COALESCE(NULLIF(ssid,''), '[oculto]'),
@@ -90,7 +95,13 @@ sqlite3 -separator $'\x01' "$DB" \
             strftime('%d/%m/%y %H:%M', last_seen)
      FROM networks
      $WHERE
-     ORDER BY $SORT DESC;" \
+     ORDER BY
+            CASE WHEN '${SORT_BY}'='ssid' THEN ssid END COLLATE NOCASE ASC,
+            CASE WHEN '${SORT_BY}'='channel' THEN channel END ASC,
+            CASE WHEN '${SORT_BY}'='security' THEN security END COLLATE NOCASE ASC,
+            CASE WHEN '${SORT_BY}'='bssid' THEN bssid END COLLATE NOCASE ASC,
+            CASE WHEN '${SORT_BY}'='last_seen' THEN last_seen END DESC,
+            id DESC;" \
 | while IFS=$'\x01' read -r id bssid ssid mode chan sec pwd seen; do
 
     # Colore senha
