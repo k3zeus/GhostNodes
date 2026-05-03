@@ -115,6 +115,7 @@ assert_ok "nodenation parses" bash -n "$NODENATION_SCRIPT"
 assert_ok "nodenation exposes main()" grep -q '^main()' "$NODENATION_SCRIPT"
 assert_ok "nodenation guards direct execution" grep -q '_GN_EXECUTED_DIRECTLY' "$NODENATION_SCRIPT"
 assert_ok "nodenation supports CI non-tty bootstrap override" grep -q 'GN_BOOTSTRAP_ALLOW_NONTTY' "$NODENATION_SCRIPT"
+assert_ok "nodenation auto-elevates through sudo when not root" grep -q 'exec sudo -E bash "\$0" "\$@"' "$NODENATION_SCRIPT"
 
 printf "\n${BOLD}  Section: Satoshi automatic selection${RESET}\n"
 satoshi_prepare_auto_selection

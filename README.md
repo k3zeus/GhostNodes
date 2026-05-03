@@ -15,7 +15,7 @@ Orquestrador monorepo para instalacao soberana via `curl | bash`, dashboard TUI 
 Em hosts Debian/Ubuntu limpos:
 
 ```bash
-sudo curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
+curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | sudo bash
 ```
 
 Uso local no repo:

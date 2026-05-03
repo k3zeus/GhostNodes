@@ -1240,7 +1240,11 @@ menu_principal() {
 
 main() {
     if [ "$EUID" -ne 0 ]; then
-        printf "\n  ${RED}[ERRO]${RESET} Execute como root: ${BOLD}sudo bash nodenation${RESET}\n\n"
+        if command -v sudo >/dev/null 2>&1; then
+            printf "\n  ${YELLOW}[INFO]${RESET} Elevando privilégios com ${BOLD}sudo${RESET}...\n\n"
+            exec sudo -E bash "$0" "$@"
+        fi
+        printf "\n  ${RED}[ERRO]${RESET} Execute como root: ${BOLD}curl -fsSL <url> | sudo bash${RESET}\n\n"
         exit 1
     fi
 
