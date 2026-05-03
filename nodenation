@@ -23,7 +23,12 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # BOOTSTRAP — suporte a curl | bash (stdin não é TTY)
 # ══════════════════════════════════════════════════════════════════════════════
-if [ ! -t 0 ]; then
+_GN_EXECUTED_DIRECTLY=0
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    _GN_EXECUTED_DIRECTLY=1
+fi
+
+if [ "$_GN_EXECUTED_DIRECTLY" -eq 1 ] && [ ! -t 0 ] && [ "${GN_BOOTSTRAP_ALLOW_NONTTY:-false}" != "true" ]; then
     _SELF="/tmp/nodenation_bootstrap.sh"
     cat > "$_SELF" && chmod +x "$_SELF"
     exec bash "$_SELF" "$@" < /dev/tty
@@ -1233,67 +1238,65 @@ menu_principal() {
     done
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PONTO DE ENTRADA
-# ══════════════════════════════════════════════════════════════════════════════
-if [ "$EUID" -ne 0 ]; then
-    printf "\n  ${RED}[ERRO]${RESET} Execute como root: ${BOLD}sudo bash nodenation${RESET}\n\n"
-    exit 1
-fi
+main() {
+    if [ "$EUID" -ne 0 ]; then
+        printf "\n  ${RED}[ERRO]${RESET} Execute como root: ${BOLD}sudo bash nodenation${RESET}\n\n"
+        exit 1
+    fi
 
-# Cria diretórios temporários
-mkdir -p "$GN_TMP_DIR" "$GN_TMP_VAR" 2>/dev/null || true
+    mkdir -p "$GN_TMP_DIR" "$GN_TMP_VAR" 2>/dev/null || true
 
-# Carrega lib se projeto já instalado
-[ -f "${LIB_DIR}/init.sh" ] && source "${LIB_DIR}/init.sh" 2>/dev/null || true
+    [ -f "${LIB_DIR}/init.sh" ] && source "${LIB_DIR}/init.sh" 2>/dev/null || true
 
-# Carrega hardware salvo (tmp ou definitivo)
-for HW_F in "$GN_TMP_HW" "${GN_ROOT}/var/hardware.env"; do
-    [ -f "$HW_F" ] && source "$HW_F" 2>/dev/null && break || true
-done
+    for HW_F in "$GN_TMP_HW" "${GN_ROOT}/var/hardware.env"; do
+        [ -f "$HW_F" ] && source "$HW_F" 2>/dev/null && break || true
+    done
 
-case "${1:-}" in
-    --help|-h)
-        detect_hardware 2>/dev/null || true
-        show_help
-        ;;
-    --download-only)
-        detect_hardware
-        download_project
-        exit 0
-        ;;
-    --detect-hw)
-        detect_hardware
-        exit 0
-        ;;
-    --web-start)
-        echo "🚀 Starting GhostNodes Dashboard service..."
-        sudo systemctl start "$WEB_SERVICE" || true
-        sudo systemctl status "$WEB_SERVICE"
-        exit 0
-        ;;
-    --web-stop)
-        echo "🛑 Stopping GhostNodes Dashboard service..."
-        sudo systemctl stop "$WEB_SERVICE" || true
-        exit 0
-        ;;
-    --web-status)
-        echo "🔍 Checking Dashboard status..."
-        sudo systemctl status "$WEB_SERVICE"
-        exit 0
-        ;;
-    *)
-        # Detecta hardware na primeira execução
-        [ -z "${GN_HW_ARCH:-}" ] && detect_hardware
-        # Download automático se projeto não está no staging nem instalado
-        if [ ! -d "$GN_TMP_DIR" ] || [ ! -f "${GN_TMP_DIR}/halfin/lib/init.sh" ]; then
-            if [ ! -d "$GN_ROOT" ] || [ ! -f "${GN_ROOT}/halfin/lib/init.sh" ]; then
-                echo ""
-                step_info "Projeto não encontrado — iniciando download automático..."
-                press_enter
-                download_project || true
+    case "${1:-}" in
+        --help|-h)
+            detect_hardware 2>/dev/null || true
+            show_help
+            ;;
+        --download-only)
+            detect_hardware
+            download_project
+            exit 0
+            ;;
+        --detect-hw)
+            detect_hardware
+            exit 0
+            ;;
+        --web-start)
+            echo "🚀 Starting GhostNodes Dashboard service..."
+            sudo systemctl start "$WEB_SERVICE" || true
+            sudo systemctl status "$WEB_SERVICE"
+            exit 0
+            ;;
+        --web-stop)
+            echo "🛑 Stopping GhostNodes Dashboard service..."
+            sudo systemctl stop "$WEB_SERVICE" || true
+            exit 0
+            ;;
+        --web-status)
+            echo "🔍 Checking Dashboard status..."
+            sudo systemctl status "$WEB_SERVICE"
+            exit 0
+            ;;
+        *)
+            [ -z "${GN_HW_ARCH:-}" ] && detect_hardware
+            if [ ! -d "$GN_TMP_DIR" ] || [ ! -f "${GN_TMP_DIR}/halfin/lib/init.sh" ]; then
+                if [ ! -d "$GN_ROOT" ] || [ ! -f "${GN_ROOT}/halfin/lib/init.sh" ]; then
+                    echo ""
+                    step_info "Projeto não encontrado — iniciando download automático..."
+                    press_enter
+                    download_project || true
+                fi
             fi
-        fi
-        menu_principal
-        ;;
-esac
+            menu_principal
+            ;;
+    esac
+}
+
+if [ "$_GN_EXECUTED_DIRECTLY" -eq 1 ]; then
+    main "$@"
+fi

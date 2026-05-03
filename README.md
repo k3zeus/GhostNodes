@@ -46,4 +46,6 @@ sudo bash ./nodenation
 - Frontend: `cd web/frontend && npm run build`
 - Backend: `python -m py_compile web/backend/main.py web/backend/routers/*.py`
 - Shell tests: `bash tests/test_auto_registry.sh`, `bash tests/test_halfin_install.sh`, `bash tests/test_satoshi_install.sh`
+- Bootstrap/menu contract: `bash tests/test_nodenation_bootstrap.sh`
+- Real bootstrap matrix: `bash tests/e2e/run_bootstrap_matrix.sh`
 - Compose parse: `docker compose -f web/docker-compose.yml config`
