@@ -47,7 +47,7 @@ fi
 
 # ─── Lista interfaces WiFi disponíveis ────────────────────────────────────────
 select_interface() {
-    header
+    banner
     echo -e "  ${BOLD}Interfaces WiFi disponíveis:${RESET}"
     echo ""
 
@@ -91,7 +91,7 @@ select_interface() {
 
 # ─── Escaneia redes próximas ──────────────────────────────────────────────────
 scan_networks() {
-    header
+    banner
     echo -e "  ${YELLOW}⟳ Escaneando redes próximas com a interface ${BOLD}$IFACE${RESET}${YELLOW}...${RESET}"
     echo ""
 
@@ -130,7 +130,7 @@ scan_networks() {
 
 # ─── Exibe menu de redes e permite escolha ────────────────────────────────────
 show_menu() {
-    header
+    banner
     echo -e "  ${BOLD}Interface: ${CYAN}$IFACE${RESET}  ${DIM}|  Redes próximas:${RESET}"
     echo ""
     echo -e "${DIM}  ──────────────────────────────────────────────────────────────────────────────${RESET}"
@@ -218,7 +218,7 @@ connect_to() {
     local idx="$1"
     IFS='|' read -r bssid ssid chan security signal db_pwd status <<< "${MENU_NETS[$idx]}"
 
-    header
+    banner
     echo -e "  ${BOLD}Conectando a:${RESET}"
     echo ""
     echo -e "  ${DIM}BSSID   :${RESET} ${BOLD}$bssid${RESET}"

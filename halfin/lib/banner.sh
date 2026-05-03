@@ -29,6 +29,10 @@ banner() {
     main_banner "  GHOSTNODES - HALFIN  "
 }
 
+header() {
+    banner
+}
+
 header_compact() {
     main_banner "${1:-GHOSTNODES}"
 }
