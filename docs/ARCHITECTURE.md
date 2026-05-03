@@ -13,7 +13,7 @@ GhostNodes is a multi-layered orchestration platform. It combines low-level shel
 1. **The One-Liner**: `curl | bash` triggers the remote load.
 2. **TTY Hijacking**: The script detects if it's being piped and re-executes itself via `/dev/tty` to allow interactive menus.
 3. **Hardware Evaluation**: Reads CPU cores, RAM, and Disk space to suggest optimized configurations (e.g., Bitcoin Pruning).
-4. **Environment Setup**: Pulls the `beta.tar.gz` from the verified GitHub repository.
+4. **Environment Setup**: Pulls the `main.tar.gz` snapshot from the verified GitHub repository.
 5. **Interactive Selection**: Uses the corrected `_menu_read` (stderr redirection) to allow project selection (Halfin, Satoshi, etc.).
 
 ## 🔐 Security Model

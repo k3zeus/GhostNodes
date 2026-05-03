@@ -10,8 +10,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - GN_REPO_URL=http://host.docker.internal:18080/beta.tar.gz
-      - GN_REPO_DIR_NAME=GhostNodes-beta
+      - GN_REPO_URL=http://host.docker.internal:18080/main.tar.gz
+      - GN_REPO_DIR_NAME=GhostNodes-main
     networks:
       - test-net
 

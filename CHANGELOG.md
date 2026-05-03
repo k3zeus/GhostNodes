@@ -4,9 +4,10 @@ All notable changes to the GhostNodes Sovereign Dashboard will be documented in 
 
 ## [1.2.2] - 2026-04-19
 ### Fixed
+- **nodenation bootstrap:** Default download source now follows `main.tar.gz` so `curl | bash` installs the current `main` branch snapshot, not `dev`.
 - **TUI Immediate Crash (set -e trap):** Fixed critical exit logic in `_menu_read()` and `check_preinstall_exists()` where short-circuit evaluation (`[[ ... ]] && cmd`) caused silent termination of the GhostNodes installer when selecting user options under `set -e` strict rules.
 - **nodenation:** Substituído short-circuit (`[[ ... ]] && cmd`) nas funções _menu_read e check_preinstall_exists por `if/then/fi` explícito, prevenindo que o `set -e` mate o script após seleção normal de menu e resolvendo o erro de queda imediata.
-- **nodenation (github cache):** Variável de link de download (`GN_REPO_URL`) alterada internamente na base dev para `dev.tar.gz` ao invés de usar o artefato da tag "Beta", rompendo o ciclo de downloads infinitos da versão com defeito.
+- **nodenation (github cache):** Histórico: a base dev usou `dev.tar.gz` em um período anterior para contornar um ciclo de downloads da tag "Beta".
 - **nodenation (docker spawn):** Execução remota orquestrada do `docker-compose up -d` engatilhada apenas após mover `GN_TMP_DIR` para definitivo, prevenindo destruição do bind-path por diretórios desfeitos (`/tmp/ghostnodes_staging`).
 - **ghostnode (tui):** Fixação estrutural do `HALFIN_DIR` para `nodenation/halfin` em substituição da arquitetura `dirname`, revivendo os menus dinâmicos e contornando a exclusão de pastas globais root.
 - **pre_install.sh (paths temporarios):** Injeção dinâmica de escopo onde `HALFIN_DIR` assume `/tmp/...` durante bootstrap automado, garantindo que os scripts secundários (Fail2ban, Pi-hole, Docker) rodem e achem seus .sh correlatos antes da fusão final.
