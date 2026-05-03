@@ -19,6 +19,8 @@ services:
     restart: always
     depends_on:
       - mempool-db
+    env_file:
+      - ../var/bitcoin-rpc.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:

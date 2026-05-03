@@ -31,7 +31,7 @@ BITCOIN_USER="bitcoin"
 BITCOIN_GROUP="${BITCOIN_USER}"
 BITCOIN_DIR="/home/${BITCOIN_USER}/.bitcoin"
 BITCOIN_CONF="${BITCOIN_DIR}/bitcoin.conf"
-BITCOIN_SERVICE="bitcoind.service"
+BITCOIN_SERVICE="satoshi-bitcoind.service"
 BITCOIN_VARIANT="${SATOSHI_VARIANT:-core}"
 BITCOIN_VERSION=""
 BITCOIN_URL=""
@@ -56,6 +56,15 @@ download_file() {
     fi
 }
 
+normalize_arch() {
+    case "${GN_HW_ARCH:-unknown}" in
+        aarch64|arm64) echo "arm64" ;;
+        amd64|x86_64)  echo "x86_64" ;;
+        armv7l|armv7|armhf) echo "armhf" ;;
+        *) echo "${GN_HW_ARCH:-unknown}" ;;
+    esac
+}
+
 ensure_bitcoin_user() {
     if ! id "$BITCOIN_USER" >/dev/null 2>&1; then
         adduser --disabled-password --gecos "" "$BITCOIN_USER"
@@ -66,10 +75,13 @@ ensure_bitcoin_user() {
 }
 
 resolve_release() {
+    local ARCH
+    ARCH="$(normalize_arch)"
+
     case "$BITCOIN_VARIANT" in
         core)
             BITCOIN_VERSION="29.1"
-            case "${GN_HW_ARCH:-unknown}" in
+            case "$ARCH" in
                 arm64)  BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
                 x86_64) BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
                 armhf)  BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-arm-linux-gnueabihf.tar.gz" ;;
@@ -78,7 +90,7 @@ resolve_release() {
             ;;
         knots)
             BITCOIN_VERSION="29.3.knots20260210"
-            case "${GN_HW_ARCH:-unknown}" in
+            case "$ARCH" in
                 arm64)  BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
                 x86_64) BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
                 armhf)  BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-arm-linux-gnueabihf.tar.gz" ;;
@@ -150,8 +162,12 @@ StateDirectory=bitcoind
 [Install]
 WantedBy=multi-user.target
 EOF
-    systemctl daemon-reload
-    systemctl enable "${BITCOIN_SERVICE}" >/dev/null 2>&1
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload
+        systemctl enable "${BITCOIN_SERVICE}" >/dev/null 2>&1
+    else
+        step_warn "systemctl indisponivel - pulando enable do servico"
+    fi
 }
 
 instalar_bitcoind() {
@@ -256,7 +272,11 @@ EOF
     create_systemd_service
 
     step_info "Iniciando ${BITCOIN_SERVICE}..."
-    systemctl restart "${BITCOIN_SERVICE}"
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl restart "${BITCOIN_SERVICE}"
+    else
+        step_warn "systemctl indisponivel - servico nao foi reiniciado automaticamente"
+    fi
     step_ok "bitcoin.conf salvo e servico iniciado"
     log_ok "bitcoin.conf gerado - modo=${INSTALL_MODE}"
 
