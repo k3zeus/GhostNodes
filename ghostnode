@@ -786,14 +786,20 @@ menu_docker_configuracoes() {
 # ══════════════════════════════════════════════════════════════════════════════
 
 menu_satoshi() {
+    local SATOSHI_SERVICE="satoshi-bitcoind.service"
+    local SATOSHI_DATA_DIR="/home/bitcoin/.bitcoin"
+    local SATOSHI_CONF="${SATOSHI_DATA_DIR}/bitcoin.conf"
+    local SATOSHI_LOG="${GN_ROOT}/satoshi/logs/bitcoin.log"
+
     while true; do
         banner
         section "4 — Satoshi Node (Bitcoin)"
         echo ""
-        printf "  ${BOLD}[4.1]${RESET}  Verificar Sincronização e Status (Block Count)\n"
-        printf "  ${BOLD}[4.2]${RESET}  Logs em Tempo Real (debug.log)\n"
-        printf "  ${BOLD}[4.3]${RESET}  Iniciar bitcoind (Daemon)\n"
-        printf "  ${BOLD}[4.4]${RESET}  Parar bitcoind\n"
+        printf "  ${BOLD}[4.1]${RESET}  Resumo da instalação do node\n"
+        printf "  ${BOLD}[4.2]${RESET}  Verificar sincronização e status\n"
+        printf "  ${BOLD}[4.3]${RESET}  Logs em tempo real\n"
+        printf "  ${BOLD}[4.4]${RESET}  Iniciar serviço do node\n"
+        printf "  ${BOLD}[4.5]${RESET}  Parar serviço do node\n"
         echo ""
         sep
         printf "  ${BOLD}[0]${RESET}   Voltar\n"
@@ -803,36 +809,57 @@ menu_satoshi() {
         printf "  Opção: "
         read -r OPT
         case "$OPT" in
-            4.1|41|1) 
+            4.1|41|1)
+                section "Resumo do Satoshi Node"
+                if [ -f "$SATOSHI_CONF" ]; then
+                    step_ok "bitcoin.conf encontrado em $SATOSHI_CONF"
+                else
+                    step_warn "bitcoin.conf não encontrado em $SATOSHI_CONF"
+                fi
+                if [ -f "$SATOSHI_LOG" ]; then
+                    step_ok "Log principal encontrado em $SATOSHI_LOG"
+                else
+                    step_warn "Log principal não encontrado em $SATOSHI_LOG"
+                fi
+                if command -v systemctl &>/dev/null; then
+                    systemctl status "$SATOSHI_SERVICE" --no-pager -n 5 2>&1 \
+                        | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done
+                else
+                    step_warn "systemctl não disponível"
+                fi
+                press_enter
+                ;;
+            4.2|42|2)
                 section "Status do Node"
                 if command -v bitcoin-cli &>/dev/null; then
-                    step_info "Blocos sincronizados:"
-                    bitcoin-cli getblockcount 2>/dev/null || step_err "Falha ao conectar ao bitcoind. Daemon rodando?"
+                    bitcoin-cli -conf="$SATOSHI_CONF" getblockchaininfo 2>/dev/null \
+                        | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done \
+                        || step_err "Falha ao consultar RPC. Serviço rodando e credenciais válidas?"
                 else
                     step_err "bitcoin-cli não encontrado"
                 fi
                 press_enter
                 ;;
-            4.2|42|2) 
-                if [ -f "/home/pleb/.bitcoin/debug.log" ]; then
-                    step_info "Exibindo as últimas 30 linhas. Pressione CTRL+C para voltar."
+            4.3|43|3)
+                if [ -f "$SATOSHI_LOG" ]; then
+                    step_info "Exibindo as últimas 30 linhas de $SATOSHI_LOG. Pressione CTRL+C para voltar."
                     echo ""
-                    tail -fn 30 "/home/pleb/.bitcoin/debug.log"
+                    tail -fn 30 "$SATOSHI_LOG"
                 else
-                    step_err "Arquivo debug.log não encontrado em /home/pleb/.bitcoin/"
+                    step_err "Arquivo de log não encontrado em $SATOSHI_LOG"
                     press_enter
                 fi
                 ;;
-            4.3|43|3) 
-                step_info "Iniciando bitcoind..."
-                sudo systemctl start bitcoind 2>/dev/null || bitcoind -daemon
+            4.4|44|4)
+                step_info "Iniciando ${SATOSHI_SERVICE}..."
+                systemctl start "$SATOSHI_SERVICE" 2>/dev/null || bitcoind -daemon -conf="$SATOSHI_CONF"
                 step_ok "Comando de inicialização enviado"
                 press_enter
                 ;;
-            4.4|44|4) 
-                step_info "Parando bitcoind..."
+            4.5|45|5)
+                step_info "Parando ${SATOSHI_SERVICE}..."
                 if command -v bitcoin-cli &>/dev/null; then
-                    bitcoin-cli stop 2>/dev/null || sudo systemctl stop bitcoind
+                    bitcoin-cli -conf="$SATOSHI_CONF" stop 2>/dev/null || systemctl stop "$SATOSHI_SERVICE"
                     step_ok "Comando de parada enviado"
                 else
                     step_err "bitcoin-cli não encontrado."

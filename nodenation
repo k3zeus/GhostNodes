@@ -269,12 +269,16 @@ check_compat() {
             if [ "$hw_ram" -lt 1 ]; then
                 _COMPAT_MSG="RAM insuficiente (${hw_ram}GB). Mínimo: 1GB."
                 RC=2
-            elif [ "$hw_disk" -ge 400 ] && [ "$hw_ram" -ge 2 ]; then
+            elif [ "$hw_disk" -ge 1024 ]; then
                 _COMPAT_MODE="full"
-                _COMPAT_MSG="Hardware compatível com Full Node Bitcoin."
+                _COMPAT_MSG="Disco compatível com Full Node Bitcoin."
+                if [ "$hw_ram" -lt 2 ]; then
+                    _COMPAT_WARNINGS+=("RAM abaixo do ideal para Full Node (2GB+ recomendado)")
+                    RC=1
+                fi
             elif [ "$hw_disk" -ge 10 ]; then
                 _COMPAT_MODE="pruned"
-                _COMPAT_MSG="Disco ${hw_disk}GB — insuficiente para Full Node (400GB+)."
+                _COMPAT_MSG="Disco ${hw_disk}GB — abaixo do recomendado para Full Node (1TB+)."
                 _COMPAT_WARNINGS+=("Será instalado como Pruned Node (~10GB)")
                 RC=1
             else
@@ -288,6 +292,138 @@ check_compat() {
             ;;
     esac
     return $RC
+}
+
+satoshi_default_version() {
+    case "${1:-core}" in
+        core) echo "29.1" ;;
+        knots) echo "29.3.knots20260210" ;;
+        *) echo "" ;;
+    esac
+}
+
+satoshi_recommended_mode() {
+    local disk_gb="${GN_HW_DISK_GB:-0}"
+    if [ "$disk_gb" -ge 1024 ] 2>/dev/null; then
+        echo "full"
+    else
+        echo "pruned"
+    fi
+}
+
+satoshi_reset_selection() {
+    unset SATOSHI_VARIANT SATOSHI_VERSION SATOSHI_PRUNE_GB SATOSHI_PLAN_LABEL
+}
+
+satoshi_prepare_auto_selection() {
+    satoshi_reset_selection
+    SATOSHI_VARIANT="core"
+    SATOSHI_VERSION="$(satoshi_default_version "$SATOSHI_VARIANT")"
+    GN_INSTALL_MODE="$(satoshi_recommended_mode)"
+    if [ "$GN_INSTALL_MODE" = "pruned" ]; then
+        SATOSHI_PRUNE_GB="30"
+    fi
+    SATOSHI_PLAN_LABEL="Instalação automática"
+}
+
+satoshi_prepare_manual_selection() {
+    local variant_opt version_input mode_opt prune_opt max_prune_gb custom_prune_gb
+
+    satoshi_reset_selection
+
+    while true; do
+        banner_root
+        section "₿  Satoshi Node — Escolha da Implementação"
+        echo ""
+        printf "  ${BOLD}${CYAN}[1]${RESET}  Bitcoin Core\n"
+        printf "  ${BOLD}${CYAN}[2]${RESET}  Bitcoin Knots\n"
+        printf "\n  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
+        sep
+        _menu_read; variant_opt="$_MENU_OPT"
+        case "$variant_opt" in
+            1) SATOSHI_VARIANT="core"; break ;;
+            2) SATOSHI_VARIANT="knots"; break ;;
+            0|"") return 1 ;;
+        esac
+    done
+
+    banner_root
+    section "₿  Satoshi Node — Versão"
+    echo ""
+    printf "  ${DIM}Implementação escolhida:${RESET} ${BOLD}%s${RESET}\n" "$SATOSHI_VARIANT"
+    printf "  ${DIM}Versão padrão:${RESET} ${BOLD}%s${RESET}\n" "$(satoshi_default_version "$SATOSHI_VARIANT")"
+    echo ""
+    printf "  Digite a versão desejada ou pressione ENTER para usar a padrão: "
+    read -r version_input
+    SATOSHI_VERSION="${version_input:-$(satoshi_default_version "$SATOSHI_VARIANT")}"
+
+    while true; do
+        banner_root
+        section "₿  Satoshi Node — Modo do Node"
+        echo ""
+        printf "  ${BOLD}${CYAN}[1]${RESET}  Full Node\n"
+        if [ "${GN_HW_DISK_GB:-0}" -lt 1024 ] 2>/dev/null; then
+            printf "      ${YELLOW}Aviso:${RESET} hardware detectado com menos de 1TB livre\n"
+        fi
+        printf "  ${BOLD}${CYAN}[2]${RESET}  Pruned Node\n"
+        printf "\n  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
+        sep
+        _menu_read; mode_opt="$_MENU_OPT"
+        case "$mode_opt" in
+            1)
+                GN_INSTALL_MODE="full"
+                if [ "${GN_HW_DISK_GB:-0}" -lt 1024 ] 2>/dev/null; then
+                    if ! confirm "Seu disco tem menos de 1TB livre. Continuar com Full Node?" "n"; then
+                        continue
+                    fi
+                fi
+                break
+                ;;
+            2)
+                GN_INSTALL_MODE="pruned"
+                max_prune_gb="${GN_HW_DISK_GB:-10}"
+                while true; do
+                    banner_root
+                    section "₿  Satoshi Node — Tamanho do Pruned"
+                    echo ""
+                    printf "  ${BOLD}${CYAN}[1]${RESET}  10 GB\n"
+                    printf "  ${BOLD}${CYAN}[2]${RESET}  30 GB\n"
+                    printf "  ${BOLD}${CYAN}[3]${RESET}  Escolher manualmente\n"
+                    printf "\n  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
+                    sep
+                    _menu_read; prune_opt="$_MENU_OPT"
+                    case "$prune_opt" in
+                        1) SATOSHI_PRUNE_GB="10"; break ;;
+                        2) SATOSHI_PRUNE_GB="30"; break ;;
+                        3)
+                            echo ""
+                            printf "  Espaço máximo do pruned em GB (10-%s): " "$max_prune_gb"
+                            read -r custom_prune_gb
+                            if ! [[ "$custom_prune_gb" =~ ^[0-9]+$ ]]; then
+                                step_warn "Valor inválido"
+                                sleep 1
+                                continue
+                            fi
+                            if [ "$custom_prune_gb" -lt 10 ] || [ "$custom_prune_gb" -gt "$max_prune_gb" ]; then
+                                step_warn "Valor fora do intervalo permitido"
+                                sleep 1
+                                continue
+                            fi
+                            SATOSHI_PRUNE_GB="$custom_prune_gb"
+                            break
+                            ;;
+                        0|"") continue 2 ;;
+                    esac
+                    break
+                done
+                break
+                ;;
+            0|"") return 1 ;;
+        esac
+    done
+
+    SATOSHI_PLAN_LABEL="Instalação manual"
+    return 0
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -582,6 +718,19 @@ launch_subproject() {
         echo ""
         sep
 
+        if [ "$PROJECT" = "satoshi" ] && [ -n "${SATOSHI_PLAN_LABEL:-}" ]; then
+            printf "\n  ${BOLD}${WHITE}Plano Satoshi Selecionado:${RESET}\n\n"
+            printf "  ${BULLET} Fluxo: ${BOLD}%s${RESET}\n" "${SATOSHI_PLAN_LABEL}"
+            printf "  ${BULLET} Implementação: ${BOLD}%s${RESET}\n" "${SATOSHI_VARIANT:-core}"
+            printf "  ${BULLET} Versão: ${BOLD}%s${RESET}\n" "${SATOSHI_VERSION:-$(satoshi_default_version "${SATOSHI_VARIANT:-core}")}"
+            printf "  ${BULLET} Modo: ${BOLD}%s${RESET}\n" "${GN_INSTALL_MODE:-${_COMPAT_MODE:-pruned}}"
+            if [ "${GN_INSTALL_MODE:-}" = "pruned" ]; then
+                printf "  ${BULLET} Espaço prune: ${BOLD}%s GB${RESET}\n" "${SATOSHI_PRUNE_GB:-30}"
+            fi
+            echo ""
+            sep
+        fi
+
         # Verifica se há pré-configuração disponível
         local HAS_PRE=0
         if check_preinstall_exists "$PROJECT"; then HAS_PRE=1; fi
@@ -666,8 +815,11 @@ _executar_pre_install() {
 
     # Exporta variáveis de contexto para o pre_install.sh
     export GN_HW_ARCH GN_HW_MODEL GN_HW_RAM_GB GN_HW_DISK_GB GN_HW_CPU_CORES GN_HW_OS
-    export GN_INSTALL_MODE="${_COMPAT_MODE:-standard}"
+    export GN_INSTALL_MODE="${GN_INSTALL_MODE:-${_COMPAT_MODE:-standard}}"
     export GN_ROOT GN_USER GN_TMP_DIR
+    export SATOSHI_VARIANT="${SATOSHI_VARIANT:-}"
+    export SATOSHI_VERSION="${SATOSHI_VERSION:-}"
+    export SATOSHI_PRUNE_GB="${SATOSHI_PRUNE_GB:-}"
 
     echo ""
     sep
@@ -701,6 +853,8 @@ _executar_pre_install() {
             step_info "Inicializando instalação automatizada do Satoshi Node..."
             export GN_AUTO_INSTALL="true"
             export SATOSHI_VARIANT="${SATOSHI_VARIANT:-core}"
+            export SATOSHI_VERSION="${SATOSHI_VERSION:-$(satoshi_default_version "${SATOSHI_VARIANT:-core}")}"
+            export SATOSHI_PRUNE_GB="${SATOSHI_PRUNE_GB:-30}"
             bash "${GN_ROOT}/satoshi/install.sh" || step_warn "Aviso: Falha na instalação automatizada do Satoshi Node"
         fi
     else
@@ -971,22 +1125,27 @@ SVCEOF
 menu_satoshi() {
     while true; do
         banner_root; section "₿  Satoshi Node — Bitcoin Node"; echo ""
-        printf "  ${BOLD}${CYAN}[1]${RESET}  Instalar / Configurar Satoshi Node\n"
-        printf "  ${BOLD}${CYAN}[2]${RESET}  Status do Node\n"
-        printf "  ${BOLD}${CYAN}[3]${RESET}  Requisitos de Hardware\n"
+        printf "  ${BOLD}${CYAN}[1]${RESET}  Instalação automática\n"
+        printf "      ${DIM}Bitcoin Core com modo Full se houver 1TB+ livre, senão Pruned${RESET}\n"
+        printf "  ${BOLD}${CYAN}[2]${RESET}  Instalação manual guiada\n"
+        printf "      ${DIM}Escolher Core ou Knots, versão, Full ou Pruned e tamanho do prune${RESET}\n"
+        printf "  ${BOLD}${CYAN}[3]${RESET}  Status do Node\n"
+        printf "  ${BOLD}${CYAN}[4]${RESET}  Requisitos de Hardware\n"
         printf "\n  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
         sep
         _menu_read; OPT="$_MENU_OPT"
         case "$OPT" in
-            1) launch_subproject "satoshi" "Satoshi Node" ;;
-            2) banner_root; section "Status Bitcoin Node"; echo ""
+            1) satoshi_prepare_auto_selection
+               launch_subproject "satoshi" "Satoshi Node" ;;
+            2) satoshi_prepare_manual_selection && launch_subproject "satoshi" "Satoshi Node" ;;
+            3) banner_root; section "Status Bitcoin Node"; echo ""
                command -v bitcoin-cli &>/dev/null \
                    && bitcoin-cli getblockchaininfo 2>/dev/null \
                        | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done \
                    || step_warn "bitcoin-cli não instalado"
                press_enter_or_back ;;
-            3) banner_root; section "Requisitos Satoshi Node"; echo ""
-               printf "  ${BOLD}Full Node:${RESET}   400GB+ disco, 2GB+ RAM\n"
+            4) banner_root; section "Requisitos Satoshi Node"; echo ""
+               printf "  ${BOLD}Full Node:${RESET}   1TB+ disco livre, 2GB+ RAM recomendado\n"
                printf "  ${BOLD}Pruned Node:${RESET} 10GB+ disco, 1GB+ RAM\n"
                printf "\n  ${BOLD}Seu hardware:${RESET}\n"
                printf "  ${BULLET} Disco: ${BOLD}%s GB${RESET}\n" "${GN_HW_DISK_GB:-?}"
