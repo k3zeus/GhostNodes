@@ -740,6 +740,38 @@ launch_subproject() {
         local HAS_PRE=0
         if check_preinstall_exists "$PROJECT"; then HAS_PRE=1; fi
 
+        if [ "$PROJECT" = "satoshi" ]; then
+            printf "\n  ${BOLD}${WHITE}Instalacao do Satoshi Node:${RESET}\n\n"
+            if [ "$HAS_PRE" -eq 1 ]; then
+                printf "  ${BOLD}${GREEN}[1]${RESET}  ${BOLD}Executar instalacao do Bitcoin Node${RESET}  ${GREEN}● Recomendado${RESET}\n"
+                printf "      ${DIM}Instala apenas o fluxo Satoshi selecionado: Core/Knots, versao e modo${RESET}\n"
+                printf "      ${DIM}Script: %s${RESET}\n\n" "${_GN_FOUND_SCRIPT##*/tmp/ghostnodes_staging/}"
+            else
+                printf "  ${DIM}[1]  Executar instalacao do Bitcoin Node — ${YELLOW}indisponivel para este hardware${RESET}\n\n"
+            fi
+            printf "  ${BOLD}${CYAN}[2]${RESET}  Voltar e alterar plano Satoshi\n"
+            printf "      ${DIM}Retorna para escolher Core/Knots, versao, Full/Pruned e prune${RESET}\n"
+            echo ""
+            sep
+            printf "  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
+            sep
+
+            _menu_read; OPT="$_MENU_OPT"
+            case "$OPT" in
+                1)
+                    if [ "$HAS_PRE" -eq 0 ]; then
+                        step_warn "Instalacao do Satoshi Node nao disponivel para este hardware"
+                        sleep 2; continue
+                    fi
+                    _executar_pre_install "$PROJECT"
+                    return
+                    ;;
+                2) return ;;
+                0|"") return ;;
+            esac
+            continue
+        fi
+
         printf "\n  ${BOLD}${WHITE}Installation Options:${RESET}\n\n"
 
         if [ "$HAS_PRE" -eq 1 ]; then

@@ -94,6 +94,8 @@ assert_ok "nodenation keeps direct curl bootstrap spool" grep -q 'exec bash "$_S
 assert_ok "nodenation does not gate entrypoint with BASH_SOURCE" bash -c "! grep -q '_GN_EXECUTED_DIRECTLY' '$NODENATION'"
 assert_ok "nodenation has automatic Satoshi selection" grep -q "satoshi_prepare_auto_selection" "$NODENATION"
 assert_ok "nodenation has manual Satoshi selection" grep -q "satoshi_prepare_manual_selection" "$NODENATION"
+assert_ok "nodenation exposes explicit Satoshi execution" grep -q "Executar instalacao do Bitcoin Node" "$NODENATION"
+assert_ok "nodenation lets Satoshi return to plan selection" grep -q "Voltar e alterar plano Satoshi" "$NODENATION"
 assert_ok "nodenation exports Satoshi variant" grep -q "export SATOSHI_VARIANT" "$NODENATION"
 assert_ok "nodenation exports Satoshi version" grep -q "export SATOSHI_VERSION" "$NODENATION"
 assert_ok "nodenation exports Satoshi prune size" grep -q "export SATOSHI_PRUNE_GB" "$NODENATION"
