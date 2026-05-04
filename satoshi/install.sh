@@ -33,9 +33,8 @@ BITCOIN_DIR="/home/${BITCOIN_USER}/.bitcoin"
 BITCOIN_CONF="${BITCOIN_DIR}/bitcoin.conf"
 BITCOIN_SERVICE="satoshi-bitcoind.service"
 BITCOIN_VARIANT="${SATOSHI_VARIANT:-core}"
-BITCOIN_VERSION="${SATOSHI_VERSION:-}"
+BITCOIN_VERSION=""
 BITCOIN_URL=""
-SATOSHI_PRUNE_GB="${SATOSHI_PRUNE_GB:-}"
 
 mkdir -p "$SATOSHI_LOG_DIR" "$SATOSHI_VAR_DIR"
 
@@ -66,14 +65,6 @@ normalize_arch() {
     esac
 }
 
-default_version_for_variant() {
-    case "${1:-core}" in
-        core) echo "29.1" ;;
-        knots) echo "29.3.knots20260210" ;;
-        *) echo "" ;;
-    esac
-}
-
 ensure_bitcoin_user() {
     if ! id "$BITCOIN_USER" >/dev/null 2>&1; then
         adduser --disabled-password --gecos "" "$BITCOIN_USER"
@@ -89,7 +80,7 @@ resolve_release() {
 
     case "$BITCOIN_VARIANT" in
         core)
-            BITCOIN_VERSION="${BITCOIN_VERSION:-$(default_version_for_variant core)}"
+            BITCOIN_VERSION="29.1"
             case "$ARCH" in
                 arm64)  BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
                 x86_64) BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
@@ -98,7 +89,7 @@ resolve_release() {
             esac
             ;;
         knots)
-            BITCOIN_VERSION="${BITCOIN_VERSION:-$(default_version_for_variant knots)}"
+            BITCOIN_VERSION="29.3.knots20260210"
             case "$ARCH" in
                 arm64)  BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
                 x86_64) BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
@@ -114,11 +105,6 @@ resolve_release() {
 }
 
 choose_variant() {
-    if [ -n "${SATOSHI_VARIANT:-}" ]; then
-        BITCOIN_VARIANT="$SATOSHI_VARIANT"
-        return 0
-    fi
-
     if [ "$AUTO_MODE" = "true" ]; then
         return 0
     fi
@@ -140,106 +126,6 @@ choose_variant() {
     esac
 
     return 0
-}
-
-choose_version() {
-    local default_version version_input
-
-    default_version="$(default_version_for_variant "$BITCOIN_VARIANT")"
-
-    if [ -n "${SATOSHI_VERSION:-}" ]; then
-        BITCOIN_VERSION="$SATOSHI_VERSION"
-        return 0
-    fi
-
-    BITCOIN_VERSION="${BITCOIN_VERSION:-$default_version}"
-
-    if [ "$AUTO_MODE" = "true" ]; then
-        return 0
-    fi
-
-    echo ""
-    printf "  ${DIM}Versao padrao para %s:${RESET} ${BOLD}%s${RESET}\n" "$BITCOIN_VARIANT" "$default_version"
-    printf "  Digite a versao desejada ou pressione ENTER para usar a padrao: "
-    read -r version_input
-    BITCOIN_VERSION="${version_input:-$default_version}"
-}
-
-choose_storage_mode() {
-    local disk_gb="${GN_HW_DISK_GB:-0}"
-    local prune_opt custom_prune
-
-    if [ -n "${GN_INSTALL_MODE:-}" ] && [ "${GN_INSTALL_MODE}" != "standard" ]; then
-        INSTALL_MODE="$GN_INSTALL_MODE"
-    fi
-
-    if [ "$INSTALL_MODE" = "pruned" ] && [ -z "$SATOSHI_PRUNE_GB" ]; then
-        SATOSHI_PRUNE_GB="30"
-    fi
-
-    if [ "$AUTO_MODE" = "true" ]; then
-        if [ "$INSTALL_MODE" = "standard" ]; then
-            if [ "${GN_HW_DISK_GB:-0}" -ge 1024 ] 2>/dev/null; then
-                INSTALL_MODE="full"
-            else
-                INSTALL_MODE="pruned"
-                SATOSHI_PRUNE_GB="${SATOSHI_PRUNE_GB:-30}"
-            fi
-        fi
-        return 0
-    fi
-
-    while true; do
-        echo ""
-        printf "  ${BOLD}Qual modo deseja usar?${RESET}\n"
-        printf "  ${CYAN}[1]${RESET} Full Node\n"
-        if [ "$disk_gb" -lt 1024 ] 2>/dev/null; then
-            printf "      ${YELLOW}Aviso:${RESET} menos de 1TB livre detectado\n"
-        fi
-        printf "  ${CYAN}[2]${RESET} Pruned Node\n"
-        printf "  ${BOLD}[0]${RESET} Voltar  ${BOLD}[q]${RESET} Sair\n"
-        printf "\n  ${BOLD}Opcao:${RESET} "
-        read -r prune_opt
-
-        case "$prune_opt" in
-            1)
-                INSTALL_MODE="full"
-                if [ "$disk_gb" -lt 1024 ] 2>/dev/null; then
-                    confirm "Menos de 1TB livre. Continuar mesmo assim com Full Node?" "n" || continue
-                fi
-                SATOSHI_PRUNE_GB=""
-                return 0
-                ;;
-            2)
-                INSTALL_MODE="pruned"
-                echo ""
-                printf "  ${BOLD}Tamanho do prune:${RESET}\n"
-                printf "  ${CYAN}[1]${RESET} 10 GB\n"
-                printf "  ${CYAN}[2]${RESET} 30 GB\n"
-                printf "  ${CYAN}[3]${RESET} Escolher manualmente\n"
-                printf "\n  ${BOLD}Opcao:${RESET} "
-                read -r prune_opt
-                case "$prune_opt" in
-                    1) SATOSHI_PRUNE_GB="10"; return 0 ;;
-                    2) SATOSHI_PRUNE_GB="30"; return 0 ;;
-                    3)
-                        printf "  Espaço maximo do pruned em GB (minimo 10): "
-                        read -r custom_prune
-                        if ! [[ "$custom_prune" =~ ^[0-9]+$ ]] || [ "$custom_prune" -lt 10 ]; then
-                            step_warn "Valor invalido para prune"
-                            continue
-                        fi
-                        SATOSHI_PRUNE_GB="$custom_prune"
-                        return 0
-                        ;;
-                    *) step_warn "Opcao invalida" ;;
-                esac
-                ;;
-            0|"") return 1 ;;
-            q|Q) exit 0 ;;
-            *) step_warn "Opcao invalida" ;;
-        esac
-    done
 }
 
 write_rpc_env() {
@@ -290,17 +176,11 @@ instalar_bitcoind() {
     echo ""
 
     choose_variant || return 0
-    choose_version || return 0
-    choose_storage_mode || return 0
     resolve_release || { press_enter_or_back; return; }
 
     step_info "Arquitetura: ${GN_HW_ARCH:-desconhecida}"
     step_info "Implementacao: ${BITCOIN_VARIANT}"
     step_info "Versao: ${BITCOIN_VERSION}"
-    step_info "Modo: ${INSTALL_MODE}"
-    if [ "$INSTALL_MODE" = "pruned" ]; then
-        step_info "Prune: ${SATOSHI_PRUNE_GB:-30} GB"
-    fi
     step_info "URL: ${BITCOIN_URL}"
 
     if [ "$AUTO_MODE" != "true" ] && ! confirm "Confirma o download?"; then
@@ -351,12 +231,8 @@ configurar_bitcoin() {
     ensure_bitcoin_user
 
     local prune_val=0
-    local prune_gb=0
     case "$INSTALL_MODE" in
-        pruned)
-            prune_gb="${SATOSHI_PRUNE_GB:-30}"
-            prune_val=$(( prune_gb * 1024 ))
-            ;;
+        pruned) prune_val=550 ;;
         full) prune_val=0 ;;
         *) prune_val=0 ;;
     esac
@@ -420,14 +296,10 @@ verificar_bitcoin() {
         step_err "bitcoind nao instalado"
     fi
 
-    if command -v systemctl >/dev/null 2>&1; then
-        if systemctl is-active "${BITCOIN_SERVICE}" >/dev/null 2>&1; then
-            step_ok "Servico ${BITCOIN_SERVICE} ativo"
-        else
-            step_warn "Servico ${BITCOIN_SERVICE} inativo"
-        fi
+    if systemctl is-active "${BITCOIN_SERVICE}" >/dev/null 2>&1; then
+        step_ok "Servico ${BITCOIN_SERVICE} ativo"
     else
-        step_warn "systemctl indisponivel - status do servico nao verificado"
+        step_warn "Servico ${BITCOIN_SERVICE} inativo"
     fi
 
     if bitcoin-cli -conf="${BITCOIN_CONF}" getblockchaininfo >/dev/null 2>&1; then

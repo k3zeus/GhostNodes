@@ -1,7 +1,6 @@
-FROM debian:bookworm-slim
+FROM --platform=linux/amd64 debian:bookworm-slim
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ca-certificates \
     curl \
     wget \
     sudo \
@@ -9,8 +8,6 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     procps \
     nano \
     python3 \
-    util-linux \
-    tar \
     && rm -rf /var/lib/apt/lists/*
 
 # Add a default non-root user that matches the legacy user pattern if needed

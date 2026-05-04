@@ -15,7 +15,7 @@ Orquestrador monorepo para instalacao soberana via `curl | bash`, dashboard TUI 
 Em hosts Debian/Ubuntu limpos:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | sudo bash
+sudo curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
 ```
 
 Uso local no repo:
@@ -46,6 +46,4 @@ sudo bash ./nodenation
 - Frontend: `cd web/frontend && npm run build`
 - Backend: `python -m py_compile web/backend/main.py web/backend/routers/*.py`
 - Shell tests: `bash tests/test_auto_registry.sh`, `bash tests/test_halfin_install.sh`, `bash tests/test_satoshi_install.sh`
-- Bootstrap/menu contract: `bash tests/test_nodenation_bootstrap.sh`
-- Real bootstrap matrix: `bash tests/e2e/run_bootstrap_matrix.sh`
 - Compose parse: `docker compose -f web/docker-compose.yml config`
