@@ -17,6 +17,23 @@ Cada subprojeto novo deve nascer com:
 
 ## Contrato de instalacao
 
+Todo subprojeto deve aceitar configuracao vinda do `nodenation` por variaveis de ambiente. Isso evita menus paralelos e permite que o mesmo plano seja usado pelo instalador, pelo `ghostnode` e pelo dashboard web.
+
+Variaveis comuns:
+
+- `GN_ROOT`: raiz final do monorepo instalado
+- `GN_USER`: usuario operacional padrao
+- `GN_AUTO_INSTALL=true`: executa sem novo menu interno
+- `GN_INSTALL_MODE`: perfil escolhido pelo manager, por exemplo `standard`, `full` ou `pruned`
+
+Variaveis especificas devem seguir prefixo do subprojeto. Exemplo Satoshi:
+
+- `SATOSHI_VARIANT`: `core` ou `knots`
+- `SATOSHI_VERSION`: versao escolhida ou padrao
+- `SATOSHI_PRUNE_GB`: limite de prune em GB
+
+Regra: o menu principal escolhe o plano; o `install.sh` executa o plano. O instalador pode ter menu proprio para uso manual, mas nao deve ignorar as variaveis exportadas pelo `nodenation`.
+
 ### `pre_install.sh`
 
 Responsabilidades:
@@ -68,6 +85,14 @@ Exemplo esperado:
 - chamadas sempre por `/api/...` ou `VITE_GHOSTNODES_API_BASE`
 - builds precisam funcionar tanto no host quanto em Compose
 - se o backend rodar em container e o node no host, preferir `host.docker.internal` + `host-gateway`
+- cada subprojeto com servico nativo deve expor no backend: estado do servico, caminho de configuracao, modo instalado e dados minimos para o painel renderizar status sem hardcode legado
+
+## Padrao ghostnode
+
+- usar os mesmos paths e nomes de servico do `install.sh`
+- nao assumir `/home/pleb` quando o instalador criou usuario tecnico especifico
+- comandos de start/stop devem preferir o service name do subprojeto e manter fallback explicito
+- logs exibidos no TUI devem apontar para o arquivo gerado pelo proprio instalador
 
 ## Padrao de testes
 

@@ -33,8 +33,9 @@ BITCOIN_DIR="/home/${BITCOIN_USER}/.bitcoin"
 BITCOIN_CONF="${BITCOIN_DIR}/bitcoin.conf"
 BITCOIN_SERVICE="satoshi-bitcoind.service"
 BITCOIN_VARIANT="${SATOSHI_VARIANT:-core}"
-BITCOIN_VERSION=""
+BITCOIN_VERSION="${SATOSHI_VERSION:-}"
 BITCOIN_URL=""
+SATOSHI_PRUNE_GB="${SATOSHI_PRUNE_GB:-30}"
 
 mkdir -p "$SATOSHI_LOG_DIR" "$SATOSHI_VAR_DIR"
 
@@ -65,6 +66,14 @@ normalize_arch() {
     esac
 }
 
+default_bitcoin_version() {
+    case "${1:-core}" in
+        core) echo "29.1" ;;
+        knots) echo "29.3.knots20260210" ;;
+        *) echo "" ;;
+    esac
+}
+
 ensure_bitcoin_user() {
     if ! id "$BITCOIN_USER" >/dev/null 2>&1; then
         adduser --disabled-password --gecos "" "$BITCOIN_USER"
@@ -80,7 +89,7 @@ resolve_release() {
 
     case "$BITCOIN_VARIANT" in
         core)
-            BITCOIN_VERSION="29.1"
+            BITCOIN_VERSION="${BITCOIN_VERSION:-$(default_bitcoin_version core)}"
             case "$ARCH" in
                 arm64)  BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
                 x86_64) BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
@@ -89,7 +98,7 @@ resolve_release() {
             esac
             ;;
         knots)
-            BITCOIN_VERSION="29.3.knots20260210"
+            BITCOIN_VERSION="${BITCOIN_VERSION:-$(default_bitcoin_version knots)}"
             case "$ARCH" in
                 arm64)  BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
                 x86_64) BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
@@ -126,6 +135,81 @@ choose_variant() {
     esac
 
     return 0
+}
+
+choose_version() {
+    local default_version version_opt
+
+    if [ "$AUTO_MODE" = "true" ]; then
+        BITCOIN_VERSION="${BITCOIN_VERSION:-$(default_bitcoin_version "$BITCOIN_VARIANT")}"
+        return 0
+    fi
+
+    default_version="$(default_bitcoin_version "$BITCOIN_VARIANT")"
+    echo ""
+    printf "  ${BOLD}Versao ${BITCOIN_VARIANT}:${RESET}\n"
+    printf "  ${DIM}Padrao: %s${RESET}\n" "$default_version"
+    printf "  Digite a versao desejada ou ENTER para usar a padrao: "
+    read -r version_opt
+    BITCOIN_VERSION="${version_opt:-$default_version}"
+}
+
+choose_install_mode() {
+    local mode_opt prune_opt custom_prune
+
+    if [ "$AUTO_MODE" = "true" ] || [ "$INSTALL_MODE" = "full" ] || [ "$INSTALL_MODE" = "pruned" ]; then
+        return 0
+    fi
+
+    while true; do
+        echo ""
+        printf "  ${BOLD}Modo do node:${RESET}\n"
+        printf "  ${CYAN}[1]${RESET} Full Node\n"
+        printf "  ${CYAN}[2]${RESET} Pruned Node\n"
+        printf "  ${BOLD}[0]${RESET} Voltar  ${BOLD}[q]${RESET} Sair\n"
+        printf "\n  ${BOLD}Opcao:${RESET} "
+        read -r mode_opt
+        case "$mode_opt" in
+            1)
+                INSTALL_MODE="full"
+                return 0
+                ;;
+            2)
+                INSTALL_MODE="pruned"
+                break
+                ;;
+            0|"") return 1 ;;
+            q|Q) exit 0 ;;
+            *) step_warn "Opcao invalida" ;;
+        esac
+    done
+
+    while true; do
+        echo ""
+        printf "  ${BOLD}Tamanho do prune:${RESET}\n"
+        printf "  ${CYAN}[1]${RESET} 10 GB\n"
+        printf "  ${CYAN}[2]${RESET} 30 GB\n"
+        printf "  ${CYAN}[3]${RESET} Escolher manualmente\n"
+        printf "  ${BOLD}[0]${RESET} Voltar  ${BOLD}[q]${RESET} Sair\n"
+        printf "\n  ${BOLD}Opcao:${RESET} "
+        read -r prune_opt
+        case "$prune_opt" in
+            1) SATOSHI_PRUNE_GB="10"; return 0 ;;
+            2) SATOSHI_PRUNE_GB="30"; return 0 ;;
+            3)
+                printf "  Espaco maximo do prune em GB: "
+                read -r custom_prune
+                if [[ "$custom_prune" =~ ^[0-9]+$ ]] && [ "$custom_prune" -ge 10 ]; then
+                    SATOSHI_PRUNE_GB="$custom_prune"
+                    return 0
+                fi
+                step_warn "Valor invalido"
+                ;;
+            0|"") return 1 ;;
+            q|Q) exit 0 ;;
+            *) step_warn "Opcao invalida" ;;
+        esac
+    done
 }
 
 write_rpc_env() {
@@ -176,6 +260,7 @@ instalar_bitcoind() {
     echo ""
 
     choose_variant || return 0
+    choose_version
     resolve_release || { press_enter_or_back; return; }
 
     step_info "Arquitetura: ${GN_HW_ARCH:-desconhecida}"
@@ -230,9 +315,11 @@ configurar_bitcoin() {
 
     ensure_bitcoin_user
 
+    choose_install_mode || return 0
+
     local prune_val=0
     case "$INSTALL_MODE" in
-        pruned) prune_val=550 ;;
+        pruned) prune_val=$((SATOSHI_PRUNE_GB * 1024)) ;;
         full) prune_val=0 ;;
         *) prune_val=0 ;;
     esac

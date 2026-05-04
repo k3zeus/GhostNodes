@@ -21,6 +21,12 @@ GN_USER="${SUDO_USER:-$USER}"
 [ "$GN_USER" = "root" ] && GN_USER="pleb"
 GN_ROOT="/home/${GN_USER}/nodenation"
 HALFIN_DIR="$GN_ROOT/halfin"
+SATOSHI_DIR="$GN_ROOT/satoshi"
+BITCOIN_USER="bitcoin"
+BITCOIN_DIR="/home/${BITCOIN_USER}/.bitcoin"
+BITCOIN_CONF="${BITCOIN_DIR}/bitcoin.conf"
+BITCOIN_LOG="${SATOSHI_DIR}/logs/bitcoin.log"
+BITCOIN_SERVICE="satoshi-bitcoind.service"
 
 TOOLS_DIR="$HALFIN_DIR/tools"
 DOCKER_DIR="$HALFIN_DIR/docker"
@@ -791,9 +797,9 @@ menu_satoshi() {
         section "4 — Satoshi Node (Bitcoin)"
         echo ""
         printf "  ${BOLD}[4.1]${RESET}  Verificar Sincronização e Status (Block Count)\n"
-        printf "  ${BOLD}[4.2]${RESET}  Logs em Tempo Real (debug.log)\n"
-        printf "  ${BOLD}[4.3]${RESET}  Iniciar bitcoind (Daemon)\n"
-        printf "  ${BOLD}[4.4]${RESET}  Parar bitcoind\n"
+        printf "  ${BOLD}[4.2]${RESET}  Logs em Tempo Real (${BITCOIN_LOG})\n"
+        printf "  ${BOLD}[4.3]${RESET}  Iniciar ${BITCOIN_SERVICE}\n"
+        printf "  ${BOLD}[4.4]${RESET}  Parar ${BITCOIN_SERVICE}\n"
         echo ""
         sep
         printf "  ${BOLD}[0]${RESET}   Voltar\n"
@@ -803,36 +809,36 @@ menu_satoshi() {
         printf "  Opção: "
         read -r OPT
         case "$OPT" in
-            4.1|41|1) 
+            4.1|41|1)
                 section "Status do Node"
                 if command -v bitcoin-cli &>/dev/null; then
                     step_info "Blocos sincronizados:"
-                    bitcoin-cli getblockcount 2>/dev/null || step_err "Falha ao conectar ao bitcoind. Daemon rodando?"
+                    bitcoin-cli -conf="$BITCOIN_CONF" getblockcount 2>/dev/null || step_err "Falha ao conectar ao bitcoind. Servico rodando?"
                 else
                     step_err "bitcoin-cli não encontrado"
                 fi
                 press_enter
                 ;;
-            4.2|42|2) 
-                if [ -f "/home/pleb/.bitcoin/debug.log" ]; then
+            4.2|42|2)
+                if [ -f "$BITCOIN_LOG" ]; then
                     step_info "Exibindo as últimas 30 linhas. Pressione CTRL+C para voltar."
                     echo ""
-                    tail -fn 30 "/home/pleb/.bitcoin/debug.log"
+                    tail -fn 30 "$BITCOIN_LOG"
                 else
-                    step_err "Arquivo debug.log não encontrado em /home/pleb/.bitcoin/"
+                    step_err "Log não encontrado em $BITCOIN_LOG"
                     press_enter
                 fi
                 ;;
-            4.3|43|3) 
-                step_info "Iniciando bitcoind..."
-                sudo systemctl start bitcoind 2>/dev/null || bitcoind -daemon
+            4.3|43|3)
+                step_info "Iniciando ${BITCOIN_SERVICE}..."
+                sudo systemctl start "$BITCOIN_SERVICE" 2>/dev/null || bitcoind -conf="$BITCOIN_CONF" -datadir="$BITCOIN_DIR" -daemon
                 step_ok "Comando de inicialização enviado"
                 press_enter
                 ;;
-            4.4|44|4) 
-                step_info "Parando bitcoind..."
+            4.4|44|4)
+                step_info "Parando ${BITCOIN_SERVICE}..."
                 if command -v bitcoin-cli &>/dev/null; then
-                    bitcoin-cli stop 2>/dev/null || sudo systemctl stop bitcoind
+                    bitcoin-cli -conf="$BITCOIN_CONF" stop 2>/dev/null || sudo systemctl stop "$BITCOIN_SERVICE"
                     step_ok "Comando de parada enviado"
                 else
                     step_err "bitcoin-cli não encontrado."
