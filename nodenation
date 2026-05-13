@@ -137,7 +137,7 @@ banner_root() {
     echo "  ║      ██║ ╚████║╚██████╔╝██████╔╝███████╗███████║             ║"
     echo "  ║      ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝             ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
-    printf "  ║  ${RESET}${WHITE}${BOLD}  Ghost Nodes · NodeNation${RESET}${BOLD}${CYAN}                                ║\n"
+    printf "  ║  ${RESET}${WHITE}${BOLD}  Ghost Nodes · NodeNation${RESET}${BOLD}${CYAN}                                  ║\n"
     echo "  ║      Sovereignty Dashboard - OrangePi Zero 3                 ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     printf "${RESET}\n"
@@ -152,9 +152,9 @@ banner_root() {
             break
         }
     done
-    printf "${DIM}  ┌────────────────────────────────────────────────────────────┐${RESET}\n"
+    printf "${DIM}  ┌───────────────────────────────────────────────────────────┐${RESET}\n"
     printf "  ${DIM}│${RESET}  ${YELLOW}🌡  %-10s${RESET}  ${DIM}│${RESET}  ${CYAN}📅  %-36s${RESET}  ${DIM}│${RESET}\n" "$TEMP" "$DATETIME"
-    printf "${DIM}  └────────────────────────────────────────────────────────────┘${RESET}\n"
+    printf "${DIM}  └───────────────────────────────────────────────────────────┘${RESET}\n"
     echo ""
 }
 
