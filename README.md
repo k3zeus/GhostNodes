@@ -11,13 +11,12 @@
 
 ## Instalação Rápida
 
+# Bootstrap remoto - sudo su (Debian/Ubuntu limpos)
 ```bash
-# Bootstrap remoto (Debian/Ubuntu limpos)
-sudo curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
-
+curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
+```
 # Local
 sudo bash ./nodenation
-```
 
 ---
 
