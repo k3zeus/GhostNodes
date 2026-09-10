@@ -1,7 +1,7 @@
+#!/bin/bash
 # RTL8188GU Driver compilation test
 # Ghost Nodes v0.1
 
-#!/bin/bash
 sudo apt-get update
 sudo apt-get install build-essential git dkms linux-headers-$(uname -r)
 

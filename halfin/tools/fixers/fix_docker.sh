@@ -2,7 +2,8 @@
 # Script de auto-cura externalizado (Reutilizável)
 # Pode ser chamado pelo Python (self_healing.py) ou pelo Menu UI (ghostnode).
 
-CONTAINER="$1"
+set -euo pipefail
+CONTAINER="${1:-}"
 
 if [ -z "$CONTAINER" ]; then
     echo "Uso: fix_docker.sh <nome_do_container>"

@@ -17,9 +17,15 @@
 # CONFIGURAÇÃO GLOBAL
 # ══════════════════════════════════════════════════════════════════════════════
 # Deteção flexível para suportar usuários manipulados e SDD
-GN_USER="${SUDO_USER:-$USER}"
+GN_USER="${GN_USER:-${SUDO_USER:-${USER:-pleb}}}"
 [ "$GN_USER" = "root" ] && GN_USER="pleb"
-GN_ROOT="/home/${GN_USER}/nodenation"
+_GN_SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+if [ -f "${_GN_SCRIPT_DIR}/lib/core_lib.sh" ]; then
+    GN_ROOT="${GN_ROOT:-${_GN_SCRIPT_DIR}}"
+else
+    GN_ROOT="${GN_ROOT:-/home/${GN_USER}/nodenation}"
+fi
+export GN_ROOT GN_USER
 HALFIN_DIR="$GN_ROOT/halfin"
 SATOSHI_DIR="$GN_ROOT/satoshi"
 BITCOIN_USER="bitcoin"
@@ -52,8 +58,9 @@ show_help() {
     printf "    ${BOLD}1${RESET}  Sistema         — Verificação, instalações, configurações e atualizações\n"
     printf "    ${BOLD}2${RESET}  Rede            — Status Wi-Fi, conexão e diagnóstico de interfaces\n"
     printf "    ${BOLD}3${RESET}  Docker          — Verificação, instalação e configuração de containers\n"
-    printf "    ${BOLD}4${RESET}  Reiniciar       — Reinicia o node com confirmação\n"
-    printf "    ${BOLD}5${RESET}  Desligar        — Desliga o node com confirmação\n"
+    printf "    ${BOLD}4${RESET}  Satoshi         - Bitcoin Core / Knots\n"
+    printf "    ${BOLD}5${RESET}  Reiniciar       - Reinicia o node com confirmacao\n"
+    printf "    ${BOLD}6${RESET}  Desligar        - Desliga o node com confirmacao\n"
     echo ""
     printf "  ${BOLD}DIRETÓRIOS:${RESET}\n"
     printf "    Base     ${DIM}%s${RESET}\n" "$HALFIN_DIR"
@@ -142,8 +149,9 @@ run_script() {
 
     echo ""
     sep
-    bash "$SCRIPT"
+    GN_TUI_CHILD=1 bash "$SCRIPT"
     local RC=$?
+    [ "$RC" -eq 200 ] && exit 0
     sep
     echo ""
 
@@ -177,7 +185,7 @@ menu_sistema() {
         sep
         echo ""
         printf "  Opção: "
-        read -r OPT
+        read -r OPT || exit 0
         case "$OPT" in
             1.1|11|1) menu_sistema_verificacao ;;
             1.2|12|2) menu_sistema_instalacoes ;;
@@ -433,6 +441,7 @@ menu_rede() {
         printf "  ${BOLD}[2.1]${RESET}  Status Wi-Fi (scan + show)\n"
         printf "  ${BOLD}[2.2]${RESET}  Conectar Wi-Fi\n"
         printf "  ${BOLD}[2.3]${RESET}  Verificação e Diagnóstico de Interfaces\n"
+        printf "  ${BOLD}[2.4]${RESET}  AP Halfin: diagnostico, reparo e protecao no boot\n"
         echo ""
         sep
         printf "  ${BOLD}[0]${RESET}   Voltar\n"
@@ -440,11 +449,12 @@ menu_rede() {
         sep
         echo ""
         printf "  Opção: "
-        read -r OPT
+        read -r OPT || exit 0
         case "$OPT" in
             2.1|21|1) menu_rede_status ;;
             2.2|22|2) menu_rede_conectar ;;
             2.3|23|3) menu_rede_diagnostico ;;
+            2.4|24|4) run_script "$TOOLS_DIR/ap_menu.sh" 'AP Halfin' || true ;;
             0|"")     return ;;
             q|Q)      exit 0 ;;
             *)        step_warn "Opção inválida"; sleep 1 ;;
@@ -603,7 +613,7 @@ menu_docker() {
         sep
         echo ""
         printf "  Opção: "
-        read -r OPT
+        read -r OPT || exit 0
         case "$OPT" in
             3.1|31|1) menu_docker_verificacao ;;
             3.2|32|2) menu_docker_instalacao ;;
@@ -807,7 +817,7 @@ menu_satoshi() {
         sep
         echo ""
         printf "  Opção: "
-        read -r OPT
+        read -r OPT || exit 0
         case "$OPT" in
             4.1|41|1)
                 section "Status do Node"
@@ -929,7 +939,7 @@ menu_principal() {
         sep
         echo ""
         printf "  ${BOLD}Opção:${RESET} "
-        read -r OPT
+        read -r OPT || exit 0
 
         case "$OPT" in
             1) menu_sistema ;;

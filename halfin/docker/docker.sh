@@ -1,129 +1,92 @@
 #!/bin/bash
-#
-# Installation Script Docker - Halfin Node - Debian Bookworm - v.0.7 20032026 
-#
-_GN_DOCKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HALFIN_DIR="${HALFIN_DIR:-$(dirname "$_GN_DOCKER_DIR")}"
-GN_ROOT="${GN_ROOT:-$(dirname "$HALFIN_DIR")}"
-echo "#############################################################"
-echo "############ Choose Extra Services to Install ###############"
-echo "#############################################################"
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/init.sh"
+require_root
 
-echo ""
-echo "#"
-echo "### You would like to install the services: Docker and Portainer? ###"
-echo "#"
-echo "Install? [y/N]"
-
-read -r resp
-
-if [ "$resp" != "y" ] && [ "$resp" != "Y" ] && [ "$resp" != "s" ] && [ "$resp" != "S" ]; then
-    echo "Install skipped."
-    exit 0
-fi
-
-# Add Docker's official GPG key:
-sudo apt-get update
-sudo apt-get install ca-certificates curl -y
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-# Add the repository to Apt sources:
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update
-
-#
-echo "######### Instalando Docker e Ferramentas ###########"
-#
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-#
-echo "########### Criação e Configuração do Portainer"
-#
-docker volume create portainer_data
-#
-docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:lts
-#
-sudo systemctl enable docker
-######
-COMPOSE_FILE="${HALFIN_DIR}/docker/docker-compose.yml"
-COMPOSE_DIR="$(dirname "$COMPOSE_FILE")"
-
-if [ -f "${COMPOSE_DIR}/.env.example" ] && [ ! -f "${COMPOSE_DIR}/.env" ]; then
-    echo "Gerando novo .env a partir de .env.example com senhas aleatorias seguras..."
-    S_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 || true)"
-    W_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 || true)"
-    P_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16 || true)"
-    if [ -z "$S_PASS" ] || [ -z "$W_PASS" ] || [ -z "$P_PASS" ]; then
-        echo "Erro: falha ao gerar senhas aleatorias para o .env"
-        exit 1
+install_docker() {
+    if ! docker info >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+        local ID VERSION_CODENAME UBUNTU_CODENAME ID_LIKE distro codename pkg conflicts=()
+        source /etc/os-release
+        distro="$ID"
+        codename="${UBUNTU_CODENAME:-$VERSION_CODENAME}"
+        if [[ " ${ID_LIKE:-} " == *' ubuntu '* ]]; then distro=ubuntu; fi
+        case "$distro" in debian|ubuntu) ;; *) step_err 'Distribuicao Docker nao suportada'; return 1;; esac
+        for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do
+            dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: install ok installed$' && conflicts+=("$pkg")
+        done
+        if [ "${#conflicts[@]}" -gt 0 ]; then apt-get remove -y "${conflicts[@]}"; fi
+        apt-get update -o APT::Update::Error-Mode=any
+        apt-get install -y ca-certificates curl
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL "https://download.docker.com/linux/${distro}/gpg" -o /etc/apt/keyrings/docker.asc
+        chmod 644 /etc/apt/keyrings/docker.asc
+        printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\n' \
+            "$(dpkg --print-architecture)" "$distro" "$codename" > /etc/apt/sources.list.d/docker.list
+        apt-get update -o APT::Update::Error-Mode=any
+        DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        systemctl enable --now docker
     fi
+    docker info >/dev/null
+    docker compose version
+    if id "$GN_USER" >/dev/null 2>&1; then usermod -aG docker "$GN_USER"; fi
+}
 
-    cp "${COMPOSE_DIR}/.env.example" "${COMPOSE_DIR}/.env"
-
-    # Path dynamic replace for DOCKER_ROOT in .env.example
-    sed -i "s|DOCKER_ROOT=/home/pleb/nodenation/halfin/docker|DOCKER_ROOT=${COMPOSE_DIR}|g" "${COMPOSE_DIR}/.env"
-
-    sed -i "s/SYNCTHING_PASS=Mudar123/SYNCTHING_PASS=${S_PASS}/g" "${COMPOSE_DIR}/.env"
-    sed -i "s/WG_PASSWORD=Mudar123/WG_PASSWORD=${W_PASS}/g" "${COMPOSE_DIR}/.env"
-    sed -i "s/POSTGRES_PASSWORD=Mudar123/POSTGRES_PASSWORD=${P_PASS}/g" "${COMPOSE_DIR}/.env"
-
-    cat <<EOF > "${COMPOSE_DIR}/pass_auto_generated.txt"
-======================================================
-  SENHAS GERADAS AUTOMATICAMENTE (GhostNodes)
-======================================================
-  Syncthing:                ${S_PASS}
-  Wireguard:                ${W_PASS}
-  Postgres/Nextcloud DB:    ${P_PASS}
-
-  Guarde estas senhas!
-  O arquivo ".env" agora estah configurado.
-======================================================
-EOF
-    echo ""
-    echo -e "\e[1;33mATENCAO: SENHAS GERADAS E SALVAS EM ${COMPOSE_DIR}/pass_auto_generated.txt\e[0m"
-    cat "${COMPOSE_DIR}/pass_auto_generated.txt"
-    echo ""
-    sleep 3
-fi
-
-echo ""
-echo "########### Orquestrando o Resto dos Serviços (Docker Compose) ..."
-echo "Subir os containers agora? [y/N]"
-read -r compose_resp
-
-if [ "$compose_resp" = "y" ] || [ "$compose_resp" = "Y" ] || [ "$compose_resp" = "s" ] || [ "$compose_resp" = "S" ]; then
-    if [ -f "$COMPOSE_FILE" ]; then
-        (cd "$COMPOSE_DIR" && docker compose up -d)
+install_portainer() {
+    if docker container inspect portainer >/dev/null 2>&1; then
+        docker start portainer >/dev/null
     else
-        echo "Aviso: docker-compose.yml não encontrado em $COMPOSE_FILE"
+        docker volume create portainer_data >/dev/null
+        docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always \
+            -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:lts
     fi
-else
-    echo "Compose skipped."
-fi
-########
+    test "$(docker inspect -f '{{.State.Running}}' portainer)" = true
+}
 
-echo ""
-echo "Deseja instalar a interface Web? (Cockpit)"
-echo "Instalar? [y/N]"
-read -r cockpit
-if [ "$cockpit" != "y" ] && [ "$cockpit" != "Y" ] && [ "$cockpit" != "s" ] && [ "$cockpit" != "S" ]; then
-    echo "Cockpit skipped."
-    exit 0
-fi
+prepare_compose_env() {
+    python3 - "${SCRIPT_DIR}" <<'PY'
+import os, pathlib, secrets, sys
+root = pathlib.Path(sys.argv[1])
+target = root / '.env'
+if not target.exists():
+    text = (root / '.env.example').read_text()
+    text = text.replace('DOCKER_ROOT=/home/pleb/nodenation/halfin/docker', f'DOCKER_ROOT={root}')
+    for name in ('SYNCTHING_PASS', 'WG_PASSWORD', 'POSTGRES_PASSWORD'):
+        text = text.replace(f'{name}=Mudar123', f'{name}={secrets.token_hex(24)}')
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        stream.write(text)
+target.chmod(0o600)
+PY
+}
 
-echo "######### Instalação do Cockpit ##########"
-
-sudo apt install cockpit -y
-sudo systemctl enable cockpit
-sudo systemctl start cockpit
-
-echo ""
-echo "########## Instalação Concluída ##########"
-echo ""
-echo "###### Acesse a Interface Web do Cockpit: "
-echo "########## Através do endereço ###########"
-echo ""
-echo "######## http://10.21.21.1:9090 ##########"
+main() {
+    local choice
+    while true; do
+        section 'Docker / Portainer / Cockpit'
+        printf '[1] Docker + Portainer\n[2] Cockpit\n[3] Ambos\n[0] Voltar sem instalar\n[q] Sair\n'
+        read -r choice || return 0
+        case "$choice" in
+            0|'') return 0 ;;
+            q|Q) [ "${GN_TUI_CHILD:-0}" = 1 ] && exit 200; return 0 ;;
+            1|2|3) break ;;
+            *) step_warn 'Opcao invalida' ;;
+        esac
+    done
+    if [ "$choice" = 1 ] || [ "$choice" = 3 ]; then
+        install_docker
+        install_portainer
+        prepare_compose_env
+        if confirm 'Subir a stack Compose configurada no .env?' n; then
+            docker compose --project-directory "$SCRIPT_DIR" config --quiet
+            docker compose --project-directory "$SCRIPT_DIR" up -d --wait --wait-timeout 180
+        fi
+    fi
+    if [ "$choice" = 2 ] || [ "$choice" = 3 ]; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y cockpit
+        systemctl enable --now cockpit.socket
+        systemctl is-active --quiet cockpit.socket
+    fi
+    step_ok 'Servicos selecionados instalados.'
+}
+main "$@"

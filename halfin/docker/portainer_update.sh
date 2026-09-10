@@ -1,7 +1,7 @@
+#!/bin/bash
 # Ghost Nodes
 # Portainer Update System - 0.1v 27022026
 
-#!/bin/bash
 sudo docker stop portainer
 docker rm portainer
 docker pull portainer/portainer-ce:latest

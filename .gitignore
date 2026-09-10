@@ -23,6 +23,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
+tests/evidence/
 
 # Sistema / Logs
 var/log/

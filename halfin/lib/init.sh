@@ -13,8 +13,8 @@ source "${_GN_LIB_DIR}/banner.sh"
 source "${_GN_LIB_DIR}/log.sh"
 
 for _GN_G in \
-    "${_GN_HALFIN_ROOT}/var/globals.env" \
     "${_GN_NODENATION_ROOT}/var/globals.env" \
+    "${_GN_HALFIN_ROOT}/var/globals.env" \
     "${_GN_LIB_DIR}/../var/globals.env"; do
     [ -f "$_GN_G" ] && { source "$_GN_G"; break; }
 done

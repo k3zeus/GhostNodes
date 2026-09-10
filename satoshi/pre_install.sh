@@ -62,7 +62,7 @@ main() {
     main_banner "  SATOSHI NODE - PRE INSTALL  "
     ensure_runtime_user
     mkdir -p "${GN_ROOT}/var"
-    chown -R "${GN_USER}:${GN_USER}" "/home/${GN_USER}"
+    chown "${GN_USER}:${GN_USER}" "/home/${GN_USER}"
     install_packages
     step_ok "Pre-install do Satoshi concluido"
 }

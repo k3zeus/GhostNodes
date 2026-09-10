@@ -1,96 +1,52 @@
 #!/bin/bash
-# ============================================================================
-# GHOSTNODES - SOVEREIGN DASHBOARD SETUP
-# ============================================================================
-
 set -euo pipefail
-
-_GN_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_GN_FIND="$_GN_SELF"
-while [ ! -d "${_GN_FIND}/halfin/lib" ] && [ "$_GN_FIND" != "/" ]; do
-    _GN_FIND="$(dirname "$_GN_FIND")"
-done
-
-if [ -f "${_GN_FIND}/halfin/lib/init.sh" ]; then
-    source "${_GN_FIND}/halfin/lib/init.sh"
-else
-    BOLD="\e[1m"; RESET="\e[0m"; DIM="\e[2m"
-    GREEN="\e[32m"; YELLOW="\e[33m"; RED="\e[31m"; CYAN="\e[36m"
-    CHECK="${GREEN}OK${RESET}"; CROSS="${RED}ERR${RESET}"; ARROW="${CYAN}>${RESET}"
-    step_ok() { printf "  ${CHECK} %s\n" "$1"; }
-    step_warn() { printf "  ${YELLOW}WARN${RESET} %s\n" "$1"; }
-    step_err() { printf "  ${CROSS} %s\n" "$1"; }
-    step_info() { printf "  ${ARROW} %s\n" "$1"; }
-fi
-
-GN_ROOT="${GN_ROOT:-${_GN_FIND}}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/init.sh"
+require_root
 WEB_DIR="${GN_ROOT}/web"
-WEB_SERVICE="ghostnodes-web.service"
 BACKEND_DIR="${WEB_DIR}/backend"
 FRONTEND_DIR="${WEB_DIR}/frontend"
-RPC_ENV_FILE="${GN_ROOT}/var/bitcoin-rpc.env"
-
-step_info "Iniciando configuracao do Sovereignty Dashboard..."
-
-if [ ! -d "$BACKEND_DIR" ]; then
-    step_err "Backend nao encontrado em ${BACKEND_DIR}"
-    exit 1
-fi
-
-if [ -f "${BACKEND_DIR}/requirements.txt" ]; then
-    step_info "Instalando dependencias Python..."
-    python3 -m pip install --upgrade pip >/dev/null 2>&1
-    python3 -m pip install -r "${BACKEND_DIR}/requirements.txt" >/dev/null 2>&1
-    step_ok "Dependencias Python instaladas"
-else
-    step_warn "requirements.txt nao encontrado em ${BACKEND_DIR}"
-fi
-
-if [ -f "${FRONTEND_DIR}/package.json" ]; then
-    if command -v npm >/dev/null 2>&1; then
-        step_info "Construindo frontend React..."
-        (
-            cd "$FRONTEND_DIR"
-            npm install >/dev/null 2>&1
-            npm run build >/dev/null 2>&1
-        )
-        step_ok "Frontend compilado em ${FRONTEND_DIR}/dist"
-    else
-        step_warn "npm nao encontrado - frontend nao foi compilado"
-    fi
-else
-    step_warn "package.json nao encontrado em ${FRONTEND_DIR}"
-fi
-
-step_info "Registrando servico systemd: ${WEB_SERVICE}"
-cat > "/etc/systemd/system/${WEB_SERVICE}" << SVCEOF
+WEB_PORT="${GN_WEB_PORT:-8088}"
+[[ "$WEB_PORT" =~ ^[0-9]+$ ]] && [ "$WEB_PORT" -ge 1024 ] && [ "$WEB_PORT" -le 65535 ] || {
+    step_err 'GN_WEB_PORT deve estar entre 1024 e 65535.'; exit 1;
+}
+test -f "${BACKEND_DIR}/requirements.txt"
+test -f "${FRONTEND_DIR}/package.json"
+id "$GN_USER" >/dev/null
+DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv python3-dev build-essential npm
+python3 -m venv "${WEB_DIR}/.venv"
+"${WEB_DIR}/.venv/bin/python" -m pip install -r "${BACKEND_DIR}/requirements.txt"
+(cd "$FRONTEND_DIR" && npm install --no-audit --no-fund && npm run build)
+test -s "${FRONTEND_DIR}/dist/index.html"
+cat > /etc/systemd/system/ghostnodes-web.service <<EOF
 [Unit]
-Description=GhostNodes Sovereign Dashboard
+Description=GhostNodes Dashboard
 After=network.target
 
 [Service]
 Type=simple
-User=${GN_USER:-root}
+User=${GN_USER}
 WorkingDirectory=${BACKEND_DIR}
-ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 80
+ExecStart=${WEB_DIR}/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port ${WEB_PORT}
 Restart=on-failure
 RestartSec=5
 Environment=GN_ROOT=${GN_ROOT}
-EnvironmentFile=-${RPC_ENV_FILE}
+EnvironmentFile=-${GN_ROOT}/var/bitcoin-rpc.env
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
-SVCEOF
-
+EOF
 systemctl daemon-reload
-systemctl enable "$WEB_SERVICE" >/dev/null 2>&1
-systemctl start "$WEB_SERVICE" >/dev/null 2>&1
-
-if systemctl is-active "$WEB_SERVICE" >/dev/null 2>&1; then
-    step_ok "Dashboard ativo e rodando na porta 80"
-else
-    step_err "Falha ao iniciar o servico. Verifique logs: journalctl -u $WEB_SERVICE"
-fi
-
-exit 0
+systemctl enable ghostnodes-web.service
+systemctl restart ghostnodes-web.service
+for attempt in {1..30}; do
+    if curl -fsS "http://127.0.0.1:${WEB_PORT}/api/health" >/dev/null &&
+        curl -fsS "http://127.0.0.1:${WEB_PORT}/" | grep -q '<html'; then
+        step_ok "Dashboard respondendo na porta ${WEB_PORT}"
+        exit 0
+    fi
+    sleep 1
+done
+step_err 'Dashboard nao ficou pronto; consulte journalctl -u ghostnodes-web.'
+exit 1

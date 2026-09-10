@@ -91,7 +91,7 @@ sqlite3 -separator $'\x01' "$DB" \
             COALESCE(NULLIF(mode,''), '?'),
             COALESCE(CAST(channel AS TEXT), '?'),
             COALESCE(NULLIF(security,''), 'ABERTA'),
-            COALESCE(NULLIF(password,''), '—'),
+            CASE WHEN password IS NOT NULL AND password != '' THEN '[salva]' ELSE '—' END,
             strftime('%d/%m/%y %H:%M', last_seen)
      FROM networks
      $WHERE

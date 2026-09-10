@@ -141,7 +141,7 @@ confirm() {
         local OPTS="${DIM}s${RESET}/${GREEN}N${RESET}"
     fi
     printf "\n  ${YELLOW}?${RESET} %s [%b]: " "$MSG" "$OPTS"
-    read -r REPLY
+    read -r REPLY || return 1
     REPLY="${REPLY:-$DEFAULT}"
     [[ "$REPLY" =~ ^[sS]$ ]]
 }

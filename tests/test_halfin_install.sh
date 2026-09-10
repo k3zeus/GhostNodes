@@ -166,7 +166,7 @@ printf "\n${BOLD}  Section: Script Entry Point${RESET}\n"
 
 # Last meaningful non-empty line should be 'main' (calls the main function)
 LAST_CALL=$(tail -20 "$PRE_INSTALL" | grep -v '^#' | grep -v '^$' | grep -v '^\s*$' | tail -1 | sed 's/^[[:space:]]*//')
-assert_eq "pre_install.sh ends with 'main' call" "main" "$LAST_CALL"
+assert_eq "pre_install.sh forwards arguments to main" 'main "$@"' "$LAST_CALL"
 
 # ── Results ───────────────────────────────────────────────────────────────────
 echo ""

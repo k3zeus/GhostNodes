@@ -1,199 +1,91 @@
 #!/bin/bash
-# ╔══════════════════════════════════════════════════════════════╗
-# ║  halfin/routing.sh — Firewall / NAT / ip_forward           ║
-# ║  Ghost Nodes - NodeNation / Halfin Node  v0.4              ║
-# ╚══════════════════════════════════════════════════════════════╝
+set -euo pipefail
+HALFIN_DIR="${HALFIN_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+source "${HALFIN_DIR}/lib/init.sh"
+require_root
+WAN_IFACE="${HALFIN_WAN_IFACE:-end0}"
+BACKUP_WAN_IFACE="${HALFIN_BACKUP_WAN_IFACE:-wlan1}"
+BRIDGE_IFACE="${HALFIN_BRIDGE:-br0}"
+[ -n "$WAN_IFACE" ] && [ "$WAN_IFACE" != "$BRIDGE_IFACE" ] || {
+    step_err 'WAN ausente ou igual a bridge.'; exit 1;
+}
+ip link show "$WAN_IFACE" >/dev/null
+ip link show "$BRIDGE_IFACE" >/dev/null
+sysctl -w net.ipv4.ip_forward=1
+mkdir -p /etc/sysctl.d
+printf 'net.ipv4.ip_forward=1\n' > /etc/sysctl.d/90-halfin-routing.conf
 
-# ── Biblioteca modular ────────────────────────────────────────────────────────
-_GN_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_GN_FIND="$_GN_SELF"
-while [ ! -d "${_GN_FIND}/lib" ] && [ "$_GN_FIND" != "/" ]; do
-    _GN_FIND="$(dirname "$_GN_FIND")"
+# Reconcile only our chains; Docker, VPN and administrator rules remain intact.
+for spec in 'filter HALFIN-FWD' 'nat HALFIN-NAT'; do
+    read -r table chain <<< "$spec"
+    iptables -w -t "$table" -N "$chain" 2>/dev/null || iptables -w -t "$table" -S "$chain" >/dev/null
+    iptables -w -t "$table" -F "$chain"
 done
-[ -f "${_GN_FIND}/halfin/lib/init.sh" ] && source "${_GN_FIND}/halfin/lib/init.sh" || {
-    BOLD="\e[1m"; RESET="\e[0m"; DIM="\e[2m"
-    GREEN="\e[32m"; YELLOW="\e[33m"; RED="\e[31m"; CYAN="\e[36m"; WHITE="\e[97m"
-    CHECK="${GREEN}✔${RESET}"; CROSS="${RED}✘${RESET}"; WARN="${YELLOW}⚠${RESET}"; ARROW="${CYAN}▶${RESET}"
-    sep()      { printf "${DIM}  ──────────────────────────────────────────────────────────────${RESET}\n"; }
-    sep_thin() { printf "${DIM}  ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄${RESET}\n"; }
-    section()  { echo ""; printf "${BOLD}\e[35m  ┌─ %s${RESET}\n" "$1"; sep_thin; }
-    step_ok()  { printf "  ${CHECK} ${WHITE}%s${RESET}\n" "$1"; }
-    step_warn(){ printf "  ${WARN}  ${YELLOW}%s${RESET}\n" "$1"; }
-    step_err() { printf "  ${CROSS} ${RED}%s${RESET}\n" "$1"; }
-    step_info(){ printf "  ${ARROW} ${DIM}%s${RESET}\n" "$1"; }
-}
+LAN_CIDR=$(ip -o -4 addr show dev "$BRIDGE_IFACE" | awk 'NR==1{print $4}')
+LAN_CIDR="${HALFIN_LAN_CIDR:-${LAN_CIDR:-10.21.21.0/24}}"
+for uplink in "$WAN_IFACE" "$BACKUP_WAN_IFACE"; do
+    [ "$uplink" != "$BRIDGE_IFACE" ] && ip link show "$uplink" >/dev/null 2>&1 || continue
+    iptables -w -A HALFIN-FWD -i "$uplink" -o "$BRIDGE_IFACE" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+    iptables -w -A HALFIN-FWD -i "$BRIDGE_IFACE" -o "$uplink" -j ACCEPT
+    iptables -w -t nat -A HALFIN-NAT -s "$LAN_CIDR" -o "$uplink" -j MASQUERADE
+done
+iptables -w -C FORWARD -j HALFIN-FWD 2>/dev/null || iptables -w -I FORWARD 1 -j HALFIN-FWD
+iptables -w -t nat -C POSTROUTING -j HALFIN-NAT 2>/dev/null || iptables -w -t nat -A POSTROUTING -j HALFIN-NAT
 
-if [ "$EUID" -ne 0 ]; then
-    printf "\n  ${RED}[ERRO]${RESET} Execute como root: ${BOLD}sudo bash %s${RESET}\n\n" "$0"
-    exit 1
+if [ "${1:-}" != --apply ]; then
+    # Retire the old hook that restored the entire firewall on every link-up.
+    if [ -f /etc/network/if-up.d/iptables-halfin ]; then
+        mv /etc/network/if-up.d/iptables-halfin /etc/network/iptables-halfin.legacy
+    fi
+    # Some older Halfin images used the generic hook name. Retire only the
+    # known raw restore hook; do not touch administrator-maintained scripts.
+    if [ -f /etc/network/if-up.d/iptables ] && \
+        grep -qx 'iptables-restore < /etc/iptables.rules' /etc/network/if-up.d/iptables; then
+        mv /etc/network/if-up.d/iptables /etc/network/iptables.legacy
+    fi
+    cat > /etc/systemd/system/halfin-routing.service <<EOF
+[Unit]
+Description=Halfin routing rules
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=GN_ROOT=${GN_ROOT}
+Environment=HALFIN_DIR=${HALFIN_DIR}
+Environment=HALFIN_BRIDGE=${BRIDGE_IFACE}
+ExecStart=/bin/bash ${HALFIN_DIR}/routing.sh --apply
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    cat > /etc/systemd/system/halfin-uplink-failover.service <<EOF
+[Unit]
+Description=Halfin WAN failover (end0 primary, wlan1 backup)
+After=network-online.target NetworkManager.service halfin-routing.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=HALFIN_PRIMARY_UPLINK=${WAN_IFACE}
+Environment=HALFIN_BACKUP_UPLINK=${BACKUP_WAN_IFACE}
+ExecStart=/bin/bash ${HALFIN_DIR}/tools/uplink_failover.sh
+EOF
+    cat > /etc/systemd/system/halfin-uplink-failover.timer <<'EOF'
+[Unit]
+Description=Periodic Halfin WAN failover check
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=20s
+AccuracySec=2s
+
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl daemon-reload
+    systemctl enable halfin-routing.service
+    systemctl enable --now halfin-uplink-failover.timer
 fi
-
-set +e   # Erros em iptables não devem abortar
-
-# ─────────────────────────────────────────────────────────────────────────────
-clear
-printf "${BOLD}${CYAN}"
-echo "  ╔══════════════════════════════════════════════════════════════╗"
-echo "  ║  Ghost Nodes - NodeNation                                  ║"
-echo "  ║  Halfin Node — Firewall / NAT / ip_forward  v0.4          ║"
-echo "  ╚══════════════════════════════════════════════════════════════╝"
-printf "${RESET}\n"
-
-# ── Detecta WAN ───────────────────────────────────────────────────────────────
-section "🔍  Detecção da Interface WAN"
-echo ""
-
-WAN_IFACE=$(ip route 2>/dev/null | awk '/^default/{print $5; exit}')
-# Descomente para forçar manualmente:
-# WAN_IFACE=end0
-
-if [ -z "$WAN_IFACE" ]; then
-    step_err "Interface WAN não detectada. Defina WAN_IFACE manualmente no arquivo."
-    exit 1
-fi
-step_ok "Interface WAN: ${BOLD}${WAN_IFACE}${RESET}"
-
-# ── ip_forward persistente ────────────────────────────────────────────────────
-section "🔄  ip_forward"
-echo ""
-
-echo 1 > /proc/sys/net/ipv4/ip_forward
-
-if ! grep -q "^net.ipv4.ip_forward" /etc/sysctl.conf; then
-    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-else
-    sed -i 's/^.*net\.ipv4\.ip_forward.*$/net.ipv4.ip_forward=1/' /etc/sysctl.conf
-fi
-sysctl -p /etc/sysctl.conf > /dev/null
-step_ok "ip_forward ativo e persistente"
-
-# ── Analisa regras iptables atuais ────────────────────────────────────────────
-section "📋  Análise das Regras Atuais"
-echo ""
-
-NEED_FWD_IN="-A FORWARD -i ${WAN_IFACE} -o br0 -m state --state RELATED,ESTABLISHED -j ACCEPT"
-NEED_FWD_OUT="-A FORWARD -i br0 -o ${WAN_IFACE} -j ACCEPT"
-NEED_NAT="-A POSTROUTING -o ${WAN_IFACE} -j MASQUERADE"
-
-CURRENT_FILTER=$(iptables-save -t filter 2>/dev/null)
-CURRENT_NAT=$(iptables-save -t nat 2>/dev/null)
-
-printf "  ${DIM}%-55s  %s${RESET}\n" "Regra necessária" "Status"
-sep_thin
-
-FWD_IN_EXISTS=0; FWD_OUT_EXISTS=0; NAT_EXISTS=0
-
-echo "$CURRENT_FILTER" | grep -qF "$NEED_FWD_IN" \
-    && { printf "  %-55s ${GREEN}já existe${RESET}\n" "FORWARD ${WAN_IFACE}→br0 ESTABLISHED"; FWD_IN_EXISTS=1; } \
-    || printf "  %-55s ${YELLOW}ausente${RESET}\n" "FORWARD ${WAN_IFACE}→br0 ESTABLISHED"
-
-echo "$CURRENT_FILTER" | grep -qF "$NEED_FWD_OUT" \
-    && { printf "  %-55s ${GREEN}já existe${RESET}\n" "FORWARD br0→${WAN_IFACE} ACCEPT"; FWD_OUT_EXISTS=1; } \
-    || printf "  %-55s ${YELLOW}ausente${RESET}\n" "FORWARD br0→${WAN_IFACE} ACCEPT"
-
-echo "$CURRENT_NAT" | grep -qF "$NEED_NAT" \
-    && { printf "  %-55s ${GREEN}já existe${RESET}\n" "NAT POSTROUTING ${WAN_IFACE} MASQUERADE"; NAT_EXISTS=1; } \
-    || printf "  %-55s ${YELLOW}ausente${RESET}\n" "NAT POSTROUTING ${WAN_IFACE} MASQUERADE"
-
-# ── Remove conflitos ──────────────────────────────────────────────────────────
-section "🧹  Verificação de Conflitos"
-echo ""
-
-CONFLICTS=0
-
-# FORWARD DROP/REJECT em WAN ou br0
-NUMS=$(iptables -L FORWARD --line-numbers -n 2>/dev/null \
-    | awk -v wan="$WAN_IFACE" '/DROP|REJECT/{if($0~wan||$0~"br0") print $1}' | sort -rn)
-
-if [ -n "$NUMS" ]; then
-    step_warn "FORWARD bloqueante encontrado — removendo:"
-    for NUM in $NUMS; do
-        LINE=$(iptables -L FORWARD --line-numbers -n | awk -v n="$NUM" '$1==n{print}')
-        printf "     ${RED}#%s: %s${RESET}\n" "$NUM" "$LINE"
-        iptables -D FORWARD "$NUM" 2>/dev/null
-        CONFLICTS=$((CONFLICTS+1))
-    done
-    echo ""
-fi
-
-# MASQUERADE em outra interface (double-NAT)
-DUP_NUMS=$(iptables -t nat -L POSTROUTING --line-numbers -n 2>/dev/null \
-    | awk -v wan="$WAN_IFACE" '/MASQUERADE/&&$0!~wan{print $1}' | sort -rn)
-
-if [ -n "$DUP_NUMS" ]; then
-    step_warn "MASQUERADE em interface diferente de ${WAN_IFACE}:"
-    for NUM in $DUP_NUMS; do
-        iptables -t nat -D POSTROUTING "$NUM" 2>/dev/null
-        CONFLICTS=$((CONFLICTS+1))
-    done
-fi
-
-# MASQUERADE duplicado na mesma WAN
-MASQ_COUNT=$(iptables -t nat -L POSTROUTING -n 2>/dev/null | grep -c "MASQUERADE" || echo 0)
-if [ "$MASQ_COUNT" -gt 1 ]; then
-    step_warn "${MASQ_COUNT} MASQUERADE duplicados — limpando POSTROUTING..."
-    iptables -t nat -F POSTROUTING
-    NAT_EXISTS=0
-    CONFLICTS=$((CONFLICTS+1))
-fi
-
-[ "$CONFLICTS" -eq 0 ] && step_ok "Nenhum conflito encontrado"
-
-# ── Aplica regras ausentes ────────────────────────────────────────────────────
-section "✚  Aplicando Regras Ausentes"
-echo ""
-
-ADDED=0
-[ "$FWD_IN_EXISTS"  -eq 0 ] && {
-    iptables -A FORWARD -i "$WAN_IFACE" -o br0 -m state --state RELATED,ESTABLISHED -j ACCEPT
-    step_ok "FORWARD ${WAN_IFACE}→br0 ESTABLISHED"
-    ADDED=$((ADDED+1))
-}
-[ "$FWD_OUT_EXISTS" -eq 0 ] && {
-    iptables -A FORWARD -i br0 -o "$WAN_IFACE" -j ACCEPT
-    step_ok "FORWARD br0→${WAN_IFACE} ACCEPT"
-    ADDED=$((ADDED+1))
-}
-[ "$NAT_EXISTS"     -eq 0 ] && {
-    iptables -t nat -A POSTROUTING -o "$WAN_IFACE" -j MASQUERADE
-    step_ok "NAT POSTROUTING ${WAN_IFACE} MASQUERADE"
-    ADDED=$((ADDED+1))
-}
-[ "$ADDED" -eq 0 ] && step_ok "Todas as regras já presentes — nada adicionado"
-
-# ── Persistência ──────────────────────────────────────────────────────────────
-section "💾  Persistência"
-echo ""
-
-mkdir -p /etc/iptables
-iptables-save > /etc/iptables/rules.v4
-
-RESTORE_SCRIPT="/etc/network/if-up.d/iptables-halfin"
-tee "$RESTORE_SCRIPT" > /dev/null << 'IPTRESTORE'
-#!/bin/sh
-# Restaura regras iptables Halfin ao subir interface
-[ -f /etc/iptables/rules.v4 ] && iptables-restore < /etc/iptables/rules.v4
-IPTRESTORE
-chmod +x "$RESTORE_SCRIPT"
-
-step_ok "Regras salvas: /etc/iptables/rules.v4"
-step_ok "Script de boot: $RESTORE_SCRIPT"
-
-# ── Resumo ────────────────────────────────────────────────────────────────────
-echo ""
-printf "${BOLD}${CYAN}"
-echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "   Resultado Final — Routing / NAT"
-echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-printf "${RESET}"
-printf "  ${DIM}WAN Interface  :${RESET} ${BOLD}%s${RESET}\n"   "$WAN_IFACE"
-printf "  ${DIM}ip_forward     :${RESET} ${BOLD}%s${RESET}\n"   "$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null || echo '?')"
-printf "  ${DIM}Conflitos rem. :${RESET} ${BOLD}%s${RESET}\n"   "$CONFLICTS"
-printf "  ${DIM}Regras adicion.:${RESET} ${BOLD}%s${RESET}\n\n" "$ADDED"
-
-printf "  ${BOLD}FORWARD ativo:${RESET}\n"
-iptables -L FORWARD --line-numbers -n 2>/dev/null | sed 's/^/    /'
-echo ""
-printf "  ${BOLD}NAT POSTROUTING:${RESET}\n"
-iptables -t nat -L POSTROUTING --line-numbers -n 2>/dev/null | sed 's/^/    /'
-echo ""
+step_ok "Routing configurado: ${BRIDGE_IFACE} -> ${WAN_IFACE}"

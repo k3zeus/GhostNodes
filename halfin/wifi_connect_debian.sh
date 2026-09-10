@@ -177,10 +177,10 @@ EOF
     # Registrar conexão no log
     echo "$(date '+%Y-%m-%d %H:%M:%S'),$SELECTED_INTERFACE,$SELECTED_SSID" >> "$LOG_FILE"
 
-    # Reiniciar serviços
-    echo -e "${BLUE}Reiniciando serviços de rede...${NC}"
-    systemctl restart wpa_supplicant
-    systemctl restart networking
+    # Do not restart global networking here: it can interrupt the WAN/AP.
+    # The supported TUI path is tools/wifi_connect.sh, which delegates wlan1
+    # association to NetworkManager.
+    echo -e "${YELLOW}Use tools/wifi_connect.sh para aplicar conexoes via NetworkManager.${NC}"
 
     # Verificar conexão
     sleep 5

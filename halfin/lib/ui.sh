@@ -99,7 +99,7 @@ confirm() {
     fi
 
     printf "\n  ${YELLOW}?${RESET} %s [%b]: " "$message" "$options"
-    read -r reply
+    read -r reply || return 1
     reply="${reply:-$default}"
     [[ "$reply" =~ ^[sS]$ ]]
 }

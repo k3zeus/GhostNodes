@@ -58,7 +58,7 @@ download_file() {
 }
 
 normalize_arch() {
-    case "${GN_HW_ARCH:-unknown}" in
+    case "${GN_HW_ARCH:-$(uname -m)}" in
         aarch64|arm64) echo "arm64" ;;
         amd64|x86_64)  echo "x86_64" ;;
         armv7l|armv7|armhf) echo "armhf" ;;
@@ -86,6 +86,11 @@ ensure_bitcoin_user() {
 resolve_release() {
     local ARCH
     ARCH="$(normalize_arch)"
+    BITCOIN_VERSION="${BITCOIN_VERSION:-$(default_bitcoin_version "$BITCOIN_VARIANT")}"
+    if ! [[ "$BITCOIN_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?(\.knots[0-9]{8})?$ ]]; then
+        step_err 'Versao invalida.'
+        return 1
+    fi
 
     case "$BITCOIN_VARIANT" in
         core)
@@ -100,9 +105,9 @@ resolve_release() {
         knots)
             BITCOIN_VERSION="${BITCOIN_VERSION:-$(default_bitcoin_version knots)}"
             case "$ARCH" in
-                arm64)  BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
-                x86_64) BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
-                armhf)  BITCOIN_URL="https://bitcoinknots.org/files/29.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-arm-linux-gnueabihf.tar.gz" ;;
+                arm64)  BITCOIN_URL="https://bitcoinknots.org/files/${BITCOIN_VERSION%%.*}.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-aarch64-linux-gnu.tar.gz" ;;
+                x86_64) BITCOIN_URL="https://bitcoinknots.org/files/${BITCOIN_VERSION%%.*}.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz" ;;
+                armhf)  BITCOIN_URL="https://bitcoinknots.org/files/${BITCOIN_VERSION%%.*}.x/${BITCOIN_VERSION}/bitcoin-${BITCOIN_VERSION}-arm-linux-gnueabihf.tar.gz" ;;
                 *) step_err "Arquitetura nao suportada para Bitcoin Knots: ${GN_HW_ARCH:-?}"; return 1 ;;
             esac
             ;;
@@ -261,7 +266,7 @@ instalar_bitcoind() {
 
     choose_variant || return 0
     choose_version
-    resolve_release || { press_enter_or_back; return; }
+    resolve_release || return 1
 
     step_info "Arquitetura: ${GN_HW_ARCH:-desconhecida}"
     step_info "Implementacao: ${BITCOIN_VARIANT}"
@@ -272,25 +277,34 @@ instalar_bitcoind() {
         return
     fi
 
-    local tarball="/tmp/bitcoin-${BITCOIN_VERSION}.tar.gz"
-    local extract_dir="/tmp/bitcoin-${BITCOIN_VERSION}"
-    rm -rf "$extract_dir" "$tarball"
+    local extract_dir tarball
+    extract_dir="$(mktemp -d /tmp/ghostnodes-bitcoin.XXXXXX)"
+    tarball="${extract_dir}/release.tar.gz"
 
     step_info "Baixando binarios..."
     download_file "$BITCOIN_URL" "$tarball"
+    download_file "${BITCOIN_URL%/*}/SHA256SUMS" "${extract_dir}/SHA256SUMS"
+    local expected actual
+    expected=$(awk -v name="${BITCOIN_URL##*/}" '$2==name || $2=="*"name {print $1}' "${extract_dir}/SHA256SUMS")
+    actual=$(sha256sum "$tarball" | cut -d' ' -f1)
+    if [ "${#expected}" -ne 64 ] || [ "$actual" != "$expected" ]; then
+        step_err 'Checksum Bitcoin invalido; binarios nao instalados.'
+        rm -rf -- "$extract_dir"
+        return 1
+    fi
 
     step_info "Extraindo..."
     mkdir -p "$extract_dir"
     tar -xzf "$tarball" -C "$extract_dir"
 
     local top_dir
-    top_dir="$(tar -tzf "$tarball" | head -1 | cut -d/ -f1)"
+    top_dir="$(tar -tzf "$tarball" | awk -F/ 'NR==1{print $1} END{}')"
     local bin_dir="${extract_dir}/${top_dir}/bin"
 
     if [ ! -d "$bin_dir" ]; then
         step_err "Diretorio de binarios nao encontrado em ${bin_dir}"
         press_enter_or_back
-        return
+        return 1
     fi
 
     step_info "Instalando binarios em /usr/local/bin..."
@@ -329,7 +343,7 @@ configurar_bitcoin() {
     fi
 
     BITCOIN_RPC_USER="${BITCOIN_RPC_USER:-satoshi}"
-    BITCOIN_RPC_PASS="${BITCOIN_RPC_PASS:-$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)}"
+    BITCOIN_RPC_PASS="${BITCOIN_RPC_PASS:-$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')}"
 
     mkdir -p "$BITCOIN_DIR" "$SATOSHI_LOG_DIR"
 

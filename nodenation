@@ -95,7 +95,8 @@ confirm() {
         && OPTS="${GREEN}${BOLD}S${RESET}/${DIM}n${RESET}" \
         || OPTS="${DIM}s${RESET}/${GREEN}${BOLD}N${RESET}"
     printf "\n  ${YELLOW}?${RESET} %s [%b]: " "$MSG" "$OPTS"
-    read -r REPLY; REPLY="${REPLY:-$DEFAULT}"
+    read -r REPLY || return 1
+    REPLY="${REPLY:-$DEFAULT}"
     [[ "$REPLY" =~ ^[sS]$ ]]
 }
 
@@ -109,7 +110,7 @@ _sair() {
 # NÃO usar via $() — _sair() precisa rodar no processo principal
 _menu_read() {
     printf "\n  ${BOLD}Opção:${RESET} " >&2
-    read -r _MENU_OPT
+    read -r _MENU_OPT || _sair
     if [[ "${_MENU_OPT:-}" =~ ^[qQ]$ ]]; then _sair; fi
 }
 
@@ -545,10 +546,22 @@ instalar_projeto() {
     # Cria home se necessário (o adduser já deveria ter criado)
     mkdir -p "$GN_USER_HOME"
 
-    # Move staging → GN_ROOT
-    step_info "Movendo ${GN_TMP_DIR} → ${GN_ROOT}..."
-    rm -rf "$GN_ROOT"
-    mv "$GN_TMP_DIR" "$GN_ROOT"
+    # Overlay release files without deleting installed data or local settings.
+    step_info "Atualizando ${GN_ROOT}, preservando dados e configuracoes..."
+    [ "$GN_ROOT" != / ] && [ "$GN_ROOT" != "$GN_TMP_DIR" ] || return 1
+    mkdir -p "$GN_ROOT"
+    local source_file relative target
+    while IFS= read -r -d '' source_file; do
+        relative="${source_file#"${GN_TMP_DIR}/"}"
+        target="${GN_ROOT}/${relative}"
+        case "$relative" in
+            var/globals.env) : ;;  # Packaged defaults, not host credentials.
+            *.env|*.db|*.state|*/logs/*)
+                [ -e "$target" ] && continue ;;
+        esac
+        mkdir -p "$(dirname "$target")"
+        cp -p "$source_file" "$target" || return $?
+    done < <(find "$GN_TMP_DIR" -type f -print0)
 
     # Cria estrutura de diretórios necessários
     mkdir -p "${GN_ROOT}/var"
@@ -567,13 +580,11 @@ instalar_projeto() {
     }
 
     # Ajusta propriedade
-    chown -R "${GN_USER}:${GN_USER}" "$GN_ROOT" 2>/dev/null || true
+    chown "${GN_USER}:${GN_USER}" "$GN_ROOT" 2>/dev/null || true
 
     # Instala ghostnode como comando global
-    if [ -f "${GN_ROOT}/halfin/ghostnode" ]; then
-        cp "${GN_ROOT}/halfin/ghostnode" /usr/local/bin/ghostnode
-        chmod +x /usr/local/bin/ghostnode
-        step_ok "Comando 'ghostnode' instalado em /usr/local/bin/"
+    if [ -f "${GN_ROOT}/halfin/ghostnode-install.sh" ]; then
+        GN_ROOT="$GN_ROOT" bash "${GN_ROOT}/halfin/ghostnode-install.sh" || return $?
     fi
 
     step_ok "Projeto instalado em: $GN_ROOT"
@@ -833,9 +844,9 @@ _executar_pre_install() {
     printf "  ${YELLOW}${BOLD}O pre_install.sh irá:${RESET}\n"
     printf "  ${BULLET} Criar o usuário '${GN_USER}' quando necessário\n"
     if [ "$PROJECT" = "halfin" ]; then
-        printf "  ${BULLET} Atualizar sources.list, ferramentas e rede/AP\n"
+        printf "  ${BULLET} Preservar repositorios do SO e instalar ferramentas e rede/AP\n"
         printf "  ${BULLET} Configurar extras do Halfin e dashboard web\n"
-        printf "  ${BULLET} Remover o usuário legado (orangepi) ao final\n"
+        printf "  ${BULLET} Preservar usuario legado e conexao SSH\n"
     elif [ "$PROJECT" = "satoshi" ]; then
         printf "  ${BULLET} Preparar dependências base do Satoshi Node\n"
         printf "  ${BULLET} Promover o staging e executar o instalador Bitcoin\n"
@@ -864,8 +875,19 @@ _executar_pre_install() {
     sep
     echo ""
 
-    bash "$_GN_FOUND_SCRIPT"
-    local RC=$?
+    local RC=0
+    if [ "$PROJECT" = halfin ]; then
+        bash "$_GN_FOUND_SCRIPT" --step etapa_usuario || RC=$?
+        if [ "$RC" -eq 0 ]; then
+            instalar_projeto || RC=$?
+        fi
+        if [ "$RC" -eq 0 ]; then
+            GN_ROOT="$GN_ROOT" HALFIN_DIR="${GN_ROOT}/halfin" \
+                bash "${GN_ROOT}/halfin/pre_install.sh" || RC=$?
+        fi
+    else
+        bash "$_GN_FOUND_SCRIPT" || RC=$?
+    fi
 
     sep
     echo ""
@@ -880,13 +902,10 @@ _executar_pre_install() {
 
     # Agora que o usuário foi criado, move staging → GN_ROOT
     if id "$GN_USER" &>/dev/null; then
-        instalar_projeto
-        if [ "$PROJECT" = "halfin" ] && [ -f "${GN_ROOT}/halfin/docker/docker.sh" ]; then
-            step_info "Inicializando instalação do Docker e Orchestration..."
-            export GN_AUTO_INSTALL="true"
-            export AUTO_INSTALL="true"
-            bash "${GN_ROOT}/halfin/docker/docker.sh" || step_warn "Aviso: Falha na orquestração pelo docker.sh"
-        elif [ "$PROJECT" = "satoshi" ] && [ -f "${GN_ROOT}/satoshi/install.sh" ]; then
+        if [ "$PROJECT" = "satoshi" ]; then
+            instalar_projeto || { step_err 'Falha ao instalar arquivos.'; press_enter_or_back; return; }
+        fi
+        if [ "$PROJECT" = "satoshi" ] && [ -f "${GN_ROOT}/satoshi/install.sh" ]; then
             step_info "Inicializando instalação automatizada do Satoshi Node..."
             export GN_AUTO_INSTALL="true"
             export SATOSHI_VARIANT="${SATOSHI_VARIANT:-core}"

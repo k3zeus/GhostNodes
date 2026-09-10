@@ -220,6 +220,7 @@ bloco_hardware() {
 # Lê: /etc/passwd, who, last, id
 # ══════════════════════════════════════════════════════════════════════════════
 bloco_usuarios() {
+    local UNAME USER_ID USER_HOME USER_SHELL ONLINE GRUPOS
     section "👤" "Usuários do Sistema"
 
     # ── Usuários com shell válido (não serviços) ───────────────────────────────
@@ -229,11 +230,11 @@ bloco_usuarios() {
 
     # Filtra usuários com UID >= 1000 (usuários reais) ou root (UID 0)
     # e que tenham shell executável (/bin/bash, /bin/sh, /bin/zsh, etc)
-    while IFS=: read -r UNAME _ UID _ _ HOME SHELL; do
+    while IFS=: read -r UNAME _ USER_ID _ _ USER_HOME USER_SHELL; do
         # Inclui root e usuários com UID >= 1000
-        if [ "$UID" -eq 0 ] || [ "$UID" -ge 1000 ] 2>/dev/null; then
+        if [ "$USER_ID" -eq 0 ] || [ "$USER_ID" -ge 1000 ] 2>/dev/null; then
             # Exclui nologin e false
-            echo "$SHELL" | grep -qE "nologin|false" && continue
+            echo "$USER_SHELL" | grep -qE "nologin|false" && continue
 
             # Marca usuário logado atualmente
             ONLINE=""
@@ -243,7 +244,7 @@ bloco_usuarios() {
             GRUPOS=$(id -Gn "$UNAME" 2>/dev/null | tr ' ' ',' | cut -c1-30 || echo "—")
 
             printf "  ${BULLET} ${BOLD}%-15s${RESET} ${DIM}%-6s${RESET} %-20s ${DIM}%s${RESET}%b\n" \
-                   "$UNAME" "$UID" "$HOME" "$SHELL" "$ONLINE"
+                   "$UNAME" "$USER_ID" "$USER_HOME" "$USER_SHELL" "$ONLINE"
             printf "  ${DIM}  grupos: %s${RESET}\n" "$GRUPOS"
         fi
     done < /etc/passwd
@@ -506,6 +507,7 @@ bloco_servicos() {
 # Lê: ps aux — filtra apenas processos do projeto + alto uso
 # ══════════════════════════════════════════════════════════════════════════════
 bloco_processos() {
+    local FOUND PID USR CPU MEM CMD CPU_INT COLOR LINE
     section "📋" "Processos Relevantes"
 
     # ── Top 5 por CPU ─────────────────────────────────────────────────────────
@@ -520,7 +522,7 @@ bloco_processos() {
             USR=$(echo   "$LINE" | awk '{print $1}')
             CPU=$(echo   "$LINE" | awk '{print $3}')
             MEM=$(echo   "$LINE" | awk '{print $4}')
-            CMD=$(echo   "$LINE" | awk '{for(i=11;i<=NF;i++) printf $i" "; print ""}' \
+            CMD=$(echo   "$LINE" | awk '{for(i=11;i<=NF;i++) printf "%s ", $i; print ""}' \
                   | cut -c1-40)
 
             # Realça processo com CPU alta
@@ -538,18 +540,18 @@ bloco_processos() {
     printf "  ${BOLD}Processos do projeto (halfin/ghost/docker):${RESET}\n\n"
 
     FOUND=0
-    ps aux 2>/dev/null | grep -iE "halfin|ghostnode|hostapd|dnsmasq|docker|portainer" \
-        | grep -v "grep" | while IFS= read -r LINE; do
-            FOUND=1
-            PID=$(echo "$LINE" | awk '{print $2}')
-            USR=$(echo "$LINE" | awk '{print $1}')
-            CMD=$(echo "$LINE" | awk '{for(i=11;i<=NF;i++) printf $i" "; print ""}' \
-                  | cut -c1-50)
-            printf "  ${BULLET} ${DIM}[%s]${RESET} ${BOLD}%-10s${RESET} %s\n" "$PID" "$USR" "$CMD"
-        done
+    while IFS= read -r LINE; do
+        FOUND=1
+        PID=$(echo "$LINE" | awk '{print $2}')
+        USR=$(echo "$LINE" | awk '{print $1}')
+        CMD=$(echo "$LINE" | awk '{for(i=11;i<=NF;i++) printf "%s ", $i; print ""}' \
+              | cut -c1-50)
+        printf "  ${BULLET} ${DIM}[%s]${RESET} ${BOLD}%-10s${RESET} %s\n" "$PID" "$USR" "$CMD"
+    done < <(ps aux 2>/dev/null | grep -iE "halfin|ghostnode|hostapd|dnsmasq|docker|portainer" | grep -v "grep")
 
     [ "$FOUND" -eq 0 ] 2>/dev/null \
         && printf "  ${DIM}  Nenhum processo específico do projeto em execução${RESET}\n"
+    return 0
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
