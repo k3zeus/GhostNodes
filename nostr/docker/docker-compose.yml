@@ -1,0 +1,37 @@
+##
+# ╔══════════════════════════════════════════════════════════════╗
+# ║   GhostNodes — Module: Nostr (nostr-rs-relay)               ║
+# ║   Private Sovereign Relay + Mobile Bridge                    ║
+# ╚══════════════════════════════════════════════════════════════╝
+#
+# Private relay with pubkey whitelist.
+# Access: Internal via Tailscale | External via Cloudflare Tunnel (optional)
+# Network: joins 'ghostnet' for Nginx WebSocket proxy
+#
+
+services:
+  nostr-relay:
+    image: scsibug/nostr-rs-relay:latest
+    container_name: ghostnode-nostr
+    restart: unless-stopped
+    user: "100:100"
+    expose:
+      - "8080"
+    volumes:
+      - ./config.toml:/usr/src/app/config.toml:ro
+      - nostr_data:/usr/src/app/db
+    networks:
+      - ghostnet
+    healthcheck:
+      test: ["CMD-SHELL", "echo '{\"verb\":\"REQ\",\"subscription_id\":\"healthcheck\",\"filter\":{}}' | timeout 2 nc -w1 localhost 8080 || exit 0"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  ghostnet:
+    external: true
+
+volumes:
+  nostr_data:

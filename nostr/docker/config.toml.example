@@ -1,0 +1,56 @@
+# ══════════════════════════════════════════════════════════════
+#  GhostNodes — nostr-rs-relay Configuration
+# ══════════════════════════════════════════════════════════════
+#
+# Full reference: https://github.com/scsibug/nostr-rs-relay
+#
+# This relay is configured as PRIVATE (whitelist mode).
+# Only pubkeys in the whitelist can publish events.
+# Anyone can read (useful for followers to discover your posts).
+#
+
+[info]
+relay_url = "wss://nostr.ghostnode.local"
+name = "GhostNode Relay 👻"
+description = "Private sovereign Nostr relay — GhostNodes network"
+pubkey = ""
+contact = ""
+
+[database]
+engine = "sqlite"
+data_directory = "/usr/src/app/db"
+# Maximum database size in MB (0 = unlimited)
+# Recommended: Set a limit for ARM devices with limited storage
+max_db_size_mb = 1024
+
+[network]
+port = 8080
+address = "0.0.0.0"
+# Remote IP header for reverse proxy
+remote_ip_header = "x-forwarded-for"
+
+[authorization]
+# ── WHITELIST MODE ──
+# Only these pubkeys (hex format) can WRITE to this relay.
+# Get your hex pubkey: https://nostr.guru/ or use `nak decode npub1...`
+# Leave empty to allow anyone to write (NOT recommended).
+pubkey_whitelist = [
+    # "YOUR_HEX_PUBKEY_HERE"
+]
+
+[limits]
+# Rate limiting
+messages_per_sec = 5
+subscriptions_per_min = 30
+# Event size
+max_event_bytes = 131072
+# Maximum number of subscriptions per connection
+max_subs = 20
+
+[verified_users]
+# NIP-05 verification
+mode = "passive"
+
+[logging]
+folder_path = "/usr/src/app/db"
+file_prefix = "nostr-relay"

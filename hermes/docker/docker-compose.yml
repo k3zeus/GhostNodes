@@ -1,0 +1,66 @@
+##
+# ╔══════════════════════════════════════════════════════════════╗
+# ║   GhostNodes — Module: Hermes (AI Assistant)                 ║
+# ║   Open WebUI + Telegram Bridge | API-Only Mode               ║
+# ╚══════════════════════════════════════════════════════════════╝
+#
+# No local LLM — routes to OpenRouter/OpenAI/Google APIs
+# Network: joins external 'ghostnet' for Nginx/Cloudflared routing
+#
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: hermes-webui
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      # ── Core ──
+      - WEBUI_SECRET_KEY=${HERMES_SECRET_KEY}
+      - ENABLE_SIGNUP=${HERMES_SIGNUP:-false}
+      - DEFAULT_USER_ROLE=user
+      - WEBUI_NAME=Hermes Agent
+      # ── OpenAI-compatible API (primary: OpenRouter) ──
+      - OPENAI_API_BASE_URLS=${OPENAI_API_BASE:-https://openrouter.ai/api/v1}
+      - OPENAI_API_KEYS=${OPENROUTER_API_KEY}
+      # ── Disable local Ollama ──
+      - ENABLE_OLLAMA_API=false
+      - OLLAMA_BASE_URL=
+      # ── Data ──
+      - DATA_DIR=/app/backend/data
+    volumes:
+      - hermes_data:/app/backend/data
+    networks:
+      - ghostnet
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  telegram-bridge:
+    build:
+      context: ./telegram
+      dockerfile: Dockerfile
+    container_name: hermes-telegram
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - OPENWEBUI_BASE_URL=http://hermes-webui:8080
+      - OPENWEBUI_API_KEY=${HERMES_API_KEY}
+      - ALLOWED_TELEGRAM_USERS=${TELEGRAM_ALLOWED_USERS:-}
+      - DEFAULT_MODEL=${TELEGRAM_DEFAULT_MODEL:-openai/gpt-4o-mini}
+    depends_on:
+      open-webui:
+        condition: service_healthy
+    networks:
+      - ghostnet
+
+networks:
+  ghostnet:
+    external: true
+
+volumes:
+  hermes_data:

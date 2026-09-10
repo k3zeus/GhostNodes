@@ -138,7 +138,7 @@ banner_root() {
     echo "  ║      ██║ ╚████║╚██████╔╝██████╔╝███████╗███████║             ║"
     echo "  ║      ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝             ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
-    printf "  ║  ${RESET}${WHITE}${BOLD}  Ghost Nodes · NodeNation${RESET}${BOLD}${CYAN}                                ║\n"
+    printf "  ║  ${RESET}${WHITE}${BOLD}  Ghost Nodes · NodeNation${RESET}${BOLD}${CYAN}                                  ║\n"
     echo "  ║      Sovereignty Dashboard - OrangePi Zero 3                 ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     printf "${RESET}\n"
@@ -153,9 +153,9 @@ banner_root() {
             break
         }
     done
-    printf "${DIM}  ┌────────────────────────────────────────────────────────────┐${RESET}\n"
+    printf "${DIM}  ┌───────────────────────────────────────────────────────────┐${RESET}\n"
     printf "  ${DIM}│${RESET}  ${YELLOW}🌡  %-10s${RESET}  ${DIM}│${RESET}  ${CYAN}📅  %-36s${RESET}  ${DIM}│${RESET}\n" "$TEMP" "$DATETIME"
-    printf "${DIM}  └────────────────────────────────────────────────────────────┘${RESET}\n"
+    printf "${DIM}  └───────────────────────────────────────────────────────────┘${RESET}\n"
     echo ""
 }
 
@@ -172,12 +172,15 @@ show_help() {
     printf "    ${CYAN}sudo bash nodenation --web-start${RESET}    Start Dashboard service\n"
     printf "    ${CYAN}sudo bash nodenation --web-stop${RESET}     Stop Dashboard service\n"
     printf "    ${CYAN}sudo bash nodenation --web-status${RESET}   Dashboard health check\n"
+    printf "    ${CYAN}sudo bash nodenation --extras${RESET}       Install all extra modules\n"
+    printf "    ${CYAN}sudo bash nodenation --extras-status${RESET} Check module status\n"
     printf "    ${CYAN}sudo bash nodenation --detect-hw${RESET}    Detect hardware and exit\n"
     echo ""
     printf "  ${BOLD}SUBPROJETOS:${RESET}\n\n"
     printf "  ${CYAN}[1]${RESET} ${BOLD}Halfin Node${RESET}    AP/Roteador — OrangePi Zero 3 — arm64\n"
     printf "  ${CYAN}[2]${RESET} ${BOLD}Satoshi Node${RESET}   Bitcoin Full/Pruned — arm64/x86_64\n"
     printf "  ${CYAN}[3-7]${RESET}           Em desenvolvimento\n"
+    printf "  ${CYAN}[e]${RESET} ${BOLD}Extras${RESET}         Módulos adicionais: Vault, Hermes, Tailscale, Nostr\n"
     echo ""
     printf "  ${BOLD}FLUXO DE INSTALAÇÃO:${RESET}\n"
     printf "  ${DIM}  1. Hardware detectado → salvo em /tmp${RESET}\n"
@@ -1125,7 +1128,7 @@ _cfg_dashboard() {
             1)  step_info "Instalando dependências Python..."
                 local REQ="${WEB_DIR}/backend/requirements.txt"
                 if [ -f "$REQ" ]; then
-                    pip3 install -r "$REQ" 2>&1 \
+                    pip install -r "$REQ" 2>&1 \
                         | tail -5 | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done
                     step_ok "Dependências instaladas"
                 else
@@ -1225,6 +1228,254 @@ menu_coming_soon() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# MENU EXTRAS — Módulos Adicionais (Vault, Hermes, Tailscale, Nostr)
+# ══════════════════════════════════════════════════════════════════════════════
+_extras_docker_check() {
+    if ! command -v docker &>/dev/null; then
+        step_err "Docker não encontrado. Instale Docker primeiro (Halfin Node instala Docker automaticamente)."
+        press_enter_or_back; return 1
+    fi
+    return 0
+}
+
+_extras_ghostnet_ensure() {
+    docker network inspect ghostnet &>/dev/null 2>&1 || {
+        step_info "Criando rede Docker 'ghostnet'..."
+        docker network create ghostnet
+        step_ok "Rede 'ghostnet' criada"
+    }
+}
+
+_extras_find_module_dir() {
+    local MODULE="$1"
+    local DIR=""
+    # Procura no projeto instalado ou staging
+    for D in "${GN_ROOT}/${MODULE}" "${GN_TMP_DIR}/${MODULE}"; do
+        [ -f "${D}/install.sh" ] && DIR="$D" && break
+    done
+    echo "$DIR"
+}
+
+_extras_install_module() {
+    local MODULE="$1" MODULE_NAME="$2" YOLO_FLAG="${3:-}"
+    local DIR
+    DIR=$(_extras_find_module_dir "$MODULE")
+
+    if [ -z "$DIR" ]; then
+        step_err "Módulo '${MODULE}' não encontrado — baixe o projeto primeiro [d]"
+        return 1
+    fi
+
+    banner_root
+    section "📦  Instalando: ${MODULE_NAME}"
+    echo ""
+    printf "  ${DIM}Script : %s/install.sh${RESET}\n" "$DIR"
+    printf "  ${DIM}Hardware: %s (%s)${RESET}\n" "${GN_HW_MODEL:-?}" "${GN_HW_ARCH:-?}"
+    echo ""
+
+    if [ -z "$YOLO_FLAG" ]; then
+        if ! confirm "Iniciar instalação de ${MODULE_NAME}?"; then
+            return 0
+        fi
+    fi
+
+    _extras_ghostnet_ensure
+    echo ""
+    sep
+    bash "${DIR}/install.sh" $YOLO_FLAG
+    local RC=$?
+    sep
+    echo ""
+
+    if [ $RC -ne 0 ]; then
+        step_warn "${MODULE_NAME}: install.sh retornou código $RC"
+    else
+        step_ok "${MODULE_NAME} instalado com sucesso!"
+    fi
+    return $RC
+}
+
+_extras_install_all() {
+    local YOLO_FLAG="${1:-}"
+
+    banner_root
+    section "🚀  Instalação Completa — Todos os Módulos Extras"
+    echo ""
+    printf "  ${BOLD}Módulos que serão instalados:${RESET}\n\n"
+    printf "  ${BULLET} ${BOLD}🌐 Tailscale${RESET}  — Mesh VPN (Subnet Router)\n"
+    printf "  ${BULLET} ${BOLD}🔐 Vault${RESET}      — SSH Gateway + Vaultwarden\n"
+    printf "  ${BULLET} ${BOLD}🤖 Hermes${RESET}     — IA Assistant (Open WebUI + Telegram)\n"
+    printf "  ${BULLET} ${BOLD}📡 Nostr${RESET}      — Relay Privado\n"
+    echo ""
+    printf "  ${DIM}Ordem: Tailscale → Vault → Hermes → Nostr${RESET}\n"
+    echo ""
+
+    if [ -z "$YOLO_FLAG" ]; then
+        if ! confirm "Instalar TODOS os módulos extras?"; then
+            return
+        fi
+    fi
+
+    # Garante Docker e ghostnet
+    _extras_docker_check || return
+    _extras_ghostnet_ensure
+
+    # Gera SSL se necessário
+    local SSL_DIR
+    for D in "${GN_ROOT}/halfin/docker/nginx/ssl" "${GN_TMP_DIR}/halfin/docker/nginx/ssl"; do
+        [ -d "$(dirname "$D")" ] && SSL_DIR="$D" && break
+    done
+    if [ -n "${SSL_DIR:-}" ] && [ ! -f "${SSL_DIR}/ghostnode.crt" ]; then
+        step_info "Gerando certificado SSL autoassinado para Nginx..."
+        mkdir -p "$SSL_DIR"
+        openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+            -keyout "${SSL_DIR}/ghostnode.key" \
+            -out "${SSL_DIR}/ghostnode.crt" \
+            -subj "/C=BR/ST=RJ/L=Local/O=GhostNodes/CN=ghostnode.local" \
+            -addext "subjectAltName=DNS:*.ghostnode.local,DNS:ghostnode.local" \
+            2>/dev/null
+        step_ok "Certificado SSL gerado (válido por 10 anos)"
+    fi
+
+    # Conecta Nginx ao ghostnet
+    docker network connect ghostnet nginx 2>/dev/null || true
+
+    local FAIL=0
+    local MODULES=("tailscale:Tailscale (Mesh VPN)" "vault:Vault (SSH + Passwords)" "hermes:Hermes (AI Assistant)" "nostr:Nostr (Relay)")
+
+    for ENTRY in "${MODULES[@]}"; do
+        local MOD_ID="${ENTRY%%:*}"
+        local MOD_NAME="${ENTRY#*:}"
+        echo ""
+        printf "  ${BOLD}═══ %s ═══${RESET}\n" "$MOD_NAME"
+        local DIR
+        DIR=$(_extras_find_module_dir "$MOD_ID")
+        if [ -z "$DIR" ]; then
+            step_err "${MOD_NAME}: install.sh não encontrado"
+            FAIL=$((FAIL+1))
+            continue
+        fi
+        bash "${DIR}/install.sh" ${YOLO_FLAG:---yolo}
+        [ $? -ne 0 ] && FAIL=$((FAIL+1))
+    done
+
+    echo ""
+    sep
+    if [ $FAIL -eq 0 ]; then
+        step_ok "Todos os módulos instalados com sucesso!"
+    else
+        step_warn "${FAIL} módulo(s) tiveram problemas — verifique os logs acima"
+    fi
+
+    echo ""
+    printf "  ${BOLD}Containers ativos:${RESET}\n"
+    docker ps --format "    {{.Names}}\t{{.Status}}" 2>/dev/null \
+        | grep -E "vaultwarden|hermes|tailscale|nostr" || echo "    (nenhum dos módulos extras)"
+
+    echo ""
+    printf "  ${BOLD}Mapa de Serviços (via Tailscale):${RESET}\n"
+    printf "    🔐 Vaultwarden:    ${BOLD}https://<tailscale-ip>:8812${RESET}\n"
+    printf "    🤖 Open WebUI:     ${BOLD}https://<tailscale-ip>:8813${RESET}\n"
+    printf "    📡 Nostr Relay:    ${BOLD}wss://<tailscale-ip>:8814${RESET}\n"
+    printf "    🌐 Tailscale IP:   ${BOLD}docker exec ghostnode-tailscale tailscale ip${RESET}\n"
+
+    press_enter_or_back
+}
+
+_extras_module_status() {
+    banner_root
+    section "📊  Status dos Módulos Extras"
+    echo ""
+
+    local MODULES=("vaultwarden:🔐 Vaultwarden" "hermes-webui:🤖 Open WebUI" "hermes-telegram:🤖 Telegram Bot" "ghostnode-tailscale:🌐 Tailscale" "ghostnode-nostr:📡 Nostr Relay")
+    for ENTRY in "${MODULES[@]}"; do
+        local CNAME="${ENTRY%%:*}"
+        local CLABEL="${ENTRY#*:}"
+        local STATUS
+        STATUS=$(docker inspect --format='{{.State.Status}}' "$CNAME" 2>/dev/null || echo "not_found")
+        case "$STATUS" in
+            running)   printf "  ${GREEN}●${RESET}  %-25s ${GREEN}${BOLD}Running${RESET}\n" "$CLABEL" ;;
+            exited)    printf "  ${RED}●${RESET}  %-25s ${RED}Exited${RESET}\n" "$CLABEL" ;;
+            restarting)printf "  ${YELLOW}●${RESET}  %-25s ${YELLOW}Restarting${RESET}\n" "$CLABEL" ;;
+            *)         printf "  ${DIM}○${RESET}  %-25s ${DIM}Not installed${RESET}\n" "$CLABEL" ;;
+        esac
+    done
+
+    echo ""
+
+    # Tailscale IP
+    local TS_IP
+    TS_IP=$(docker exec ghostnode-tailscale tailscale ip -4 2>/dev/null || echo "")
+    if [ -n "$TS_IP" ]; then
+        printf "  ${BOLD}Tailscale IPv4:${RESET} ${GREEN}${TS_IP}${RESET}\n"
+    fi
+
+    echo ""
+    printf "  ${DIM}Docker network 'ghostnet':${RESET} "
+    docker network inspect ghostnet &>/dev/null 2>&1 \
+        && printf "${GREEN}exists${RESET}\n" \
+        || printf "${RED}not found${RESET}\n"
+
+    press_enter_or_back
+}
+
+menu_extras() {
+    while true; do
+        _extras_docker_check || return
+
+        banner_root
+        section "🧩  Extras — Módulos Adicionais"
+        echo ""
+        printf "  ${DIM}Módulos de expansão para serviços extras no GhostNode.${RESET}\n"
+        printf "  ${DIM}Cada módulo roda isolado em Docker via rede 'ghostnet'.${RESET}\n"
+        echo ""
+
+        sep_thin
+        printf "  ${BOLD}${WHITE}Instalação Completa:${RESET}\n"
+        sep_thin
+        echo ""
+        printf "  ${BOLD}${GREEN}[a]${RESET}  ${BOLD}Instalar TODOS os módulos${RESET}  ${GREEN}◈ Recomendado${RESET}\n"
+        printf "      ${DIM}Tailscale → Vault → Hermes → Nostr (em ordem)${RESET}\n"
+        echo ""
+
+        sep_thin
+        printf "  ${BOLD}${WHITE}Instalação Individual:${RESET}\n"
+        sep_thin
+        echo ""
+        printf "  ${BOLD}${CYAN}[1]${RESET}  ${BOLD}🌐 Tailscale${RESET}     ${DIM}Mesh VPN — Subnet Router — acesso remoto seguro${RESET}\n"
+        printf "  ${BOLD}${CYAN}[2]${RESET}  ${BOLD}🔐 Vault${RESET}         ${DIM}SSH Gateway + Vaultwarden (gerenciador de senhas)${RESET}\n"
+        printf "  ${BOLD}${CYAN}[3]${RESET}  ${BOLD}🤖 Hermes${RESET}        ${DIM}IA Assistant — Open WebUI + Telegram Bot${RESET}\n"
+        printf "  ${BOLD}${CYAN}[4]${RESET}  ${BOLD}📡 Nostr${RESET}         ${DIM}Relay Privado — nostr-rs-relay (whitelist)${RESET}\n"
+        echo ""
+
+        sep_thin
+        printf "  ${BOLD}${WHITE}Gerenciamento:${RESET}\n"
+        sep_thin
+        echo ""
+        printf "  ${BOLD}${CYAN}[s]${RESET}  ${BOLD}📊 Status${RESET}        ${DIM}Ver status de todos os módulos${RESET}\n"
+        echo ""
+        sep
+        printf "  ${BOLD}[0]${RESET}  Voltar  ${BOLD}[q]${RESET}  Sair\n"
+        sep
+
+        _menu_read; OPT="$_MENU_OPT"
+        case "$OPT" in
+            a|A) _extras_install_all "" ;;
+            1)   _extras_install_module "tailscale" "Tailscale (Mesh VPN)"
+                 press_enter_or_back ;;
+            2)   _extras_install_module "vault" "Vault (SSH Gateway + Vaultwarden)"
+                 press_enter_or_back ;;
+            3)   _extras_install_module "hermes" "Hermes (AI Assistant)"
+                 press_enter_or_back ;;
+            4)   _extras_install_module "nostr" "Nostr (Relay Privado)"
+                 press_enter_or_back ;;
+            s|S) _extras_module_status ;;
+            0|"") return ;;
+        esac
+    done
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MENU PRINCIPAL
 # ══════════════════════════════════════════════════════════════════════════════
 menu_principal() {
@@ -1264,6 +1515,12 @@ menu_principal() {
         printf "  ${BOLD}${CYAN}[7]${RESET}  ${BOLD}Craig Node${RESET}      ${DIM}…  Coming Soon${RESET}\n"
         echo ""
         sep_thin
+        printf "  ${BOLD}${WHITE}Expansion:${RESET}\n"
+        sep_thin
+        echo ""
+        printf "  ${BOLD}${CYAN}[e]${RESET}  ${BOLD}Extras${RESET}          ${MAGENTA}🧩${RESET} ${DIM}Módulos adicionais (Vault, Hermes, Tailscale, Nostr)${RESET}\n"
+        echo ""
+        sep_thin
         echo ""
         printf "  ${BOLD}[d]${RESET}  Download / Update project\n"
         printf "  ${BOLD}[h]${RESET}  Detect Hardware\n"
@@ -1280,6 +1537,7 @@ menu_principal() {
             1) launch_subproject "halfin"  "Halfin Node" ;;
             2) menu_satoshi ;;
             3|4|5|6|7) menu_coming_soon "Subproject" ;;
+            e|E) menu_extras ;;
             d|D) download_project; press_enter_or_back ;;
             h|H) detect_hardware; press_enter_or_back ;;
             c|C) menu_config_manual ;;
@@ -1336,6 +1594,19 @@ case "${1:-}" in
     --web-status)
         echo "🔍 Checking Dashboard status..."
         sudo systemctl status "$WEB_SERVICE"
+        exit 0
+        ;;
+    --extras)
+        [ -z "${GN_HW_ARCH:-}" ] && detect_hardware
+        _extras_docker_check || exit 1
+        YOLO_FLAG=""
+        [[ "${2:-}" == "--yolo" ]] && YOLO_FLAG="--yolo"
+        _extras_install_all "$YOLO_FLAG"
+        exit 0
+        ;;
+    --extras-status)
+        _extras_docker_check || exit 1
+        _extras_module_status
         exit 0
         ;;
     *)
