@@ -10,7 +10,7 @@
 #   - gn_register_preinstall creates entries
 #   - gn_find_preinstall matches OrangePi Zero 3 correctly
 #   - gn_find_preinstall matches generic arm64 as fallback
-#   - gn_find_preinstall rejects x86 for halfin (no match)
+#   - gn_find_preinstall matches generic x86_64 for halfin
 #
 # Usage: bash tests/test_auto_registry.sh
 #
@@ -161,7 +161,7 @@ MATCH_X86=$(bash -c "
         echo 'NO_MATCH'
     fi
 " 2>/dev/null)
-assert_eq "x86_64 does NOT match halfin" "NO_MATCH" "${MATCH_X86:-NO_MATCH}"
+assert_eq "x86_64 Ubuntu matches Halfin generic base" "MATCH" "${MATCH_X86:-NO_MATCH}"
 
 # ── Test 6: Empty hardware vars should not match ──────────────────────────────
 printf "\n${BOLD}  Section: Hardware Matching — Empty Vars Safety${RESET}\n"

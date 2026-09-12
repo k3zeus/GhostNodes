@@ -184,7 +184,7 @@ show_help() {
     printf "    ${CYAN}sudo bash nodenation --detect-hw${RESET}    Detect hardware and exit\n"
     echo ""
     printf "  ${BOLD}SUBPROJETOS:${RESET}\n\n"
-    printf "  ${CYAN}[1]${RESET} ${BOLD}Halfin Node${RESET}    AP/Roteador — OrangePi Zero 3 — arm64\n"
+    printf "  ${CYAN}[1]${RESET} ${BOLD}Halfin Node${RESET}    Base de rede/AP — Debian/Ubuntu arm64/x86_64\n"
     printf "  ${CYAN}[2]${RESET} ${BOLD}Satoshi Node${RESET}   Bitcoin Full/Pruned — arm64/x86_64\n"
     printf "  ${CYAN}[3-7]${RESET}           Em desenvolvimento\n"
     printf "  ${CYAN}[e]${RESET} ${BOLD}Extras${RESET}         Módulos adicionais: Vault, Hermes, Tailscale, Nostr\n"
@@ -270,11 +270,7 @@ check_compat() {
 
     case "$PROJECT" in
         halfin)
-            if [ "$hw_arch" != "arm64" ]; then
-                _COMPAT_MSG="Halfin é otimizado para arm64. Arch atual: ${hw_arch}."
-                _COMPAT_WARNINGS+=("Hardware não é arm64 — funcionalidade limitada")
-                RC=1
-            fi
+            _COMPAT_MSG="Halfin Base é compatível com ${hw_arch}. Recursos de AP exigem rádios presentes."
             ;;
         satoshi)
             if [ "$hw_ram" -lt 1 ]; then
@@ -500,20 +496,20 @@ download_project() {
         step_err "Falha na extração"; return 1
     }
 
-    # Localiza pasta extraída
-    local EXTRACTED
-    EXTRACTED=$(find "$EXTRACT_PARENT" -maxdepth 1 -type d -iname "ghostnodes*" 2>/dev/null | head -1)
-    # Fallback: tenta nome exato do repo se find falhou
-    if [ -z "$EXTRACTED" ] || [ ! -d "$EXTRACTED" ]; then
-        [ -d "${EXTRACT_PARENT}/${GN_REPO_DIR_NAME}" ] && EXTRACTED="${EXTRACT_PARENT}/${GN_REPO_DIR_NAME}"
+    # Select the archive root deterministically. GN_TMP_VAR also begins with
+    # "ghostnodes" and must never be mistaken for the extracted project.
+    local EXTRACTED="${EXTRACT_PARENT}/${GN_REPO_DIR_NAME}"
+    if [ ! -d "$EXTRACTED" ]; then
+        step_err "Pasta extraída não encontrada: $EXTRACTED"
+        step_info "Esperado do arquivo baixado: ${GN_REPO_DIR_NAME}"
+        return 1
     fi
-    if [ -z "$EXTRACTED" ] || [ ! -d "$EXTRACTED" ]; then
-        step_err "Pasta extraída não encontrada em $EXTRACT_PARENT"
-        step_info "Esperado: ${GN_REPO_DIR_NAME} ou ghostnodes*"
+    if [ ! -f "${EXTRACTED}/halfin/lib/init.sh" ] || [ ! -f "${EXTRACTED}/var/auto.sh" ]; then
+        step_err "Árvore extraída inválida; staging não será promovido"
         return 1
     fi
 
-    # Renomeia para ghostnodes_staging
+    # Renomeia a árvore validada para ghostnodes_staging.
     mv "$EXTRACTED" "$GN_TMP_DIR"
     step_ok "Projeto em staging: $GN_TMP_DIR"
 

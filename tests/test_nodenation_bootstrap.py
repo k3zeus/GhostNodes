@@ -18,5 +18,11 @@ class NodeNationBootstrapTests(unittest.TestCase):
         self.assertIn('Automatic download failed', SOURCE)
         self.assertNotIn('download_project || true', SOURCE)
 
+    def test_download_selects_only_the_expected_archive_root(self):
+        exact = 'local EXTRACTED="${EXTRACT_PARENT}/${GN_REPO_DIR_NAME}"'
+        self.assertIn(exact, SOURCE)
+        self.assertNotIn('find "$EXTRACT_PARENT" -maxdepth 1 -type d -iname "ghostnodes*"', SOURCE)
+        self.assertIn('"${EXTRACTED}/halfin/lib/init.sh"', SOURCE)
+        self.assertIn('"${EXTRACTED}/var/auto.sh"', SOURCE)
 if __name__ == '__main__':
     unittest.main()

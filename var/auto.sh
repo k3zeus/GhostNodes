@@ -45,10 +45,10 @@ gn_register_preinstall \
 gn_register_preinstall \
     "halfin" \
     ".*" \
-    "arm64" \
+    "any" \
     "Debian|Ubuntu|Armbian" \
     "halfin/pre_install.sh" \
-    "Debian/Ubuntu arm64 generic fallback"
+    "Debian/Ubuntu/Armbian generic base"
 
 # Satoshi Node
 gn_register_preinstall \

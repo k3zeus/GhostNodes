@@ -26,5 +26,10 @@ class PrivilegeFlowTests(unittest.TestCase):
         self.assertIn('bash "${GN_ROOT}/halfin/pre_install.sh"', NODE)
         self.assertNotIn('sudo bash "${GN_ROOT}/halfin/pre_install.sh"', NODE)
 
+    def test_halfin_is_not_architecture_limited_in_the_launcher(self):
+        registry = (ROOT / 'var' / 'auto.sh').read_text(encoding='utf-8')
+        self.assertIn('"Debian/Ubuntu/Armbian generic base"', registry)
+        self.assertIn('"any"', registry)
+        self.assertIn('Halfin Base é compatível com ${hw_arch}', NODE)
 if __name__ == '__main__':
     unittest.main()
