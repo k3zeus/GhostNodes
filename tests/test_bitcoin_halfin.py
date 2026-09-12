@@ -36,6 +36,8 @@ class HalfinBitcoinProfileTests(unittest.TestCase):
         self.assertIn('BITCOIN_ENGINE="$GN_ROOT/bitcoin/bitcoin-node.sh"', MENU)
         self.assertIn('--profile halfin --install', MENU)
         self.assertIn('--profile halfin --plan', MENU)
+        self.assertNotIn('`r`nBITCOIN_ENGINE', MENU)
+        self.assertIn('0|"") return ;;', MENU)
 
 if __name__ == '__main__':
     unittest.main()

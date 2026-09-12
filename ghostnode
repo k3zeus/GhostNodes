@@ -32,7 +32,8 @@ BITCOIN_USER="bitcoin"
 BITCOIN_DIR="/home/${BITCOIN_USER}/.bitcoin"
 BITCOIN_CONF="${BITCOIN_DIR}/bitcoin.conf"
 BITCOIN_LOG="${SATOSHI_DIR}/logs/bitcoin.log"
-BITCOIN_SERVICE="ghostnodes-bitcoin-halfin.service"`r`nBITCOIN_ENGINE="$GN_ROOT/bitcoin/bitcoin-node.sh"
+BITCOIN_SERVICE="ghostnodes-bitcoin-halfin.service"
+BITCOIN_ENGINE="$GN_ROOT/bitcoin/bitcoin-node.sh"
 
 TOOLS_DIR="$HALFIN_DIR/tools"
 DOCKER_DIR="$HALFIN_DIR/docker"
@@ -819,6 +820,10 @@ menu_satoshi() {
         sep
         printf "\n  Opção: "
         read -r OPT || exit 0
+        case "$OPT" in
+            0|"") return ;;
+            q|Q) exit 0 ;;
+        esac
         [ -x "$BITCOIN_ENGINE" ] || { step_err "Motor Bitcoin não encontrado: $BITCOIN_ENGINE"; press_enter; continue; }
         case "$OPT" in
             4.1|41|1) bash "$BITCOIN_ENGINE" --profile halfin --plan || true; press_enter ;;
