@@ -11,6 +11,7 @@ Data: 2026-09-12
 | Recuperação WAN | `halfin-end0-ensure.service` habilitada; verifica IPv4 e rota padrão no boot antes de recuperar por `ifupdown` |
 | AP | `wlan0` e `br0` fora do NetworkManager; bridge em `10.21.21.1/24` |
 | Cliente Wi-Fi | `wlan1`, gerenciada somente pelo NetworkManager |
+| Wi-Fi runtime state | `${GN_USER_HOME}/.local/state/halfin/wifi`; diretório 0700 e banco 0600 pertencentes ao usuário do projeto |
 | DHCP/DNS AP | Um único dono: Pi-hole FTL quando selecionado; caso contrário `dnsmasq` |
 | Bootstrap | Sem TTY retorna erro explícito; TUI tolera `TERM` ausente |
 

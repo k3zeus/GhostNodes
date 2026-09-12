@@ -7,6 +7,8 @@ require_root
 export GN_USER GN_ROOT HALFIN_DIR
 PLEB_HOME="$(getent passwd "$GN_USER" | cut -d: -f6 || true)"
 PLEB_HOME="${PLEB_HOME:-/home/${GN_USER}}"
+WIFI_STATE_DIR="${HALFIN_WIFI_STATE_DIR:-${PLEB_HOME}/.local/state/halfin/wifi}"
+WIFI_STATE_DB="${WIFI_STATE_DIR}/wifi_scan.db"
 SSID="${HALFIN_SSID:-Halfin}"
 WPA2_PASS="${HALFIN_WPA_PASS:-Mudar102030}"
 AP_IFACE="${HALFIN_AP_IFACE:-wlan0}"
@@ -305,6 +307,14 @@ etapa_remove_legado() {
 }
 
 etapa_chown() {
+    # O menu roda como GN_USER: mantenha seus dados fora da árvore de código
+    # instalada como root e restrinja-os ao próprio usuário.
+    install -d -o "$GN_USER" -g "$GN_USER" -m 0700 "$WIFI_STATE_DIR"
+    if [ -f "${HALFIN_DIR}/var/wifi_scan.db" ] && [ ! -e "$WIFI_STATE_DB" ]; then
+        install -o "$GN_USER" -g "$GN_USER" -m 0600 \
+            "${HALFIN_DIR}/var/wifi_scan.db" "$WIFI_STATE_DB"
+        step_info 'Banco Wi-Fi legado migrado para o estado do usuário.'
+    fi
     chown "${GN_USER}:${GN_USER}" "$PLEB_HOME"
     step_ok 'Propriedade dos dados dos servicos preservada.'
 }

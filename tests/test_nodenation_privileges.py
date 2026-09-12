@@ -26,6 +26,17 @@ class PrivilegeFlowTests(unittest.TestCase):
         self.assertIn('bash "${GN_ROOT}/halfin/pre_install.sh"', NODE)
         self.assertNotIn('sudo bash "${GN_ROOT}/halfin/pre_install.sh"', NODE)
 
+    def test_wifi_runtime_state_is_user_owned_and_separate_from_code(self):
+        root_globals = (ROOT / 'var' / 'globals.env').read_text(encoding='utf-8')
+        halfin_globals = (ROOT / 'halfin' / 'var' / 'globals.env').read_text(encoding='utf-8')
+        for globals_env in (root_globals, halfin_globals):
+            self.assertIn('GN_STATE_DIR="${GN_STATE_DIR:-${GN_USER_HOME}/.local/state/halfin}"', globals_env)
+            self.assertIn('GN_DB_DIR="${GN_DB_DIR:-${GN_STATE_DIR}/wifi}"', globals_env)
+            self.assertNotIn('GN_DB_DIR="${HALFIN_DIR}/var"', globals_env)
+        self.assertIn('install -d -o "$GN_USER" -g "$GN_USER" -m 0700 "$WIFI_STATE_DIR"', PRE)
+        self.assertIn('[ ! -e "$WIFI_STATE_DB" ]', PRE)
+        self.assertIn('install -o "$GN_USER" -g "$GN_USER" -m 0600', PRE)
+
     def test_halfin_is_not_architecture_limited_in_the_launcher(self):
         registry = (ROOT / 'var' / 'auto.sh').read_text(encoding='utf-8')
         self.assertIn('"Debian/Ubuntu/Armbian generic base"', registry)
