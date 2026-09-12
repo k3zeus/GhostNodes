@@ -829,7 +829,13 @@ menu_satoshi() {
             4.1|41|1) bash "$BITCOIN_ENGINE" --profile halfin --plan || true; press_enter ;;
             4.2|42|2) sudo bash "$BITCOIN_ENGINE" --profile halfin --install; press_enter ;;
             4.3|43|3) bash "$BITCOIN_ENGINE" --profile halfin --status || true; press_enter ;;
-            4.4|44|4) sudo journalctl -u "$BITCOIN_SERVICE" -n 60 --no-pager || true; press_enter ;;
+            4.4|44|4)
+                step_info "Logs em tempo real. Pressione CTRL+C para voltar."
+                if ! sudo journalctl -fu "$BITCOIN_SERVICE" --no-pager; then
+                    step_info "Acompanhamento encerrado; retornando ao menu Bitcoin."
+                fi
+                press_enter
+                ;;
             4.5|45|5) sudo systemctl start "$BITCOIN_SERVICE"; press_enter ;;
             4.6|46|6) sudo systemctl stop "$BITCOIN_SERVICE"; press_enter ;;
             0|"") return ;;

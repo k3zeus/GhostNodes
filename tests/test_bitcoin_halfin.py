@@ -38,6 +38,9 @@ class HalfinBitcoinProfileTests(unittest.TestCase):
         self.assertIn('--profile halfin --plan', MENU)
         self.assertNotIn('`r`nBITCOIN_ENGINE', MENU)
         self.assertIn('0|"") return ;;', MENU)
+        self.assertIn('journalctl -fu "$BITCOIN_SERVICE" --no-pager', MENU)
+        self.assertIn('Pressione CTRL+C para voltar.', MENU)
+        self.assertIn('press_enter', MENU)
 
 if __name__ == '__main__':
     unittest.main()
