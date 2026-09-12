@@ -32,7 +32,7 @@ BITCOIN_USER="bitcoin"
 BITCOIN_DIR="/home/${BITCOIN_USER}/.bitcoin"
 BITCOIN_CONF="${BITCOIN_DIR}/bitcoin.conf"
 BITCOIN_LOG="${SATOSHI_DIR}/logs/bitcoin.log"
-BITCOIN_SERVICE="satoshi-bitcoind.service"
+BITCOIN_SERVICE="ghostnodes-bitcoin-halfin.service"`r`nBITCOIN_ENGINE="$GN_ROOT/bitcoin/bitcoin-node.sh"
 
 TOOLS_DIR="$HALFIN_DIR/tools"
 DOCKER_DIR="$HALFIN_DIR/docker"
@@ -804,64 +804,35 @@ menu_docker_configuracoes() {
 menu_satoshi() {
     while true; do
         banner
-        section "4 — Satoshi Node (Bitcoin)"
+        section "4 — Bitcoin Core Prunado"
         echo ""
-        printf "  ${BOLD}[4.1]${RESET}  Verificar Sincronização e Status (Block Count)\n"
-        printf "  ${BOLD}[4.2]${RESET}  Logs em Tempo Real (${BITCOIN_LOG})\n"
-        printf "  ${BOLD}[4.3]${RESET}  Iniciar ${BITCOIN_SERVICE}\n"
-        printf "  ${BOLD}[4.4]${RESET}  Parar ${BITCOIN_SERVICE}\n"
+        printf "  ${BOLD}[4.1]${RESET}  Ver plano Halfin (Core 29.1, prune calculado)\n"
+        printf "  ${BOLD}[4.2]${RESET}  Instalar Bitcoin Core Prunado\n"
+        printf "  ${BOLD}[4.3]${RESET}  Status do serviço\n"
+        printf "  ${BOLD}[4.4]${RESET}  Logs do serviço\n"
+        printf "  ${BOLD}[4.5]${RESET}  Iniciar serviço\n"
+        printf "  ${BOLD}[4.6]${RESET}  Parar serviço\n"
         echo ""
         sep
         printf "  ${BOLD}[0]${RESET}   Voltar\n"
         printf "  ${BOLD}[q]${RESET}   Sair\n"
         sep
-        echo ""
-        printf "  Opção: "
+        printf "\n  Opção: "
         read -r OPT || exit 0
+        [ -x "$BITCOIN_ENGINE" ] || { step_err "Motor Bitcoin não encontrado: $BITCOIN_ENGINE"; press_enter; continue; }
         case "$OPT" in
-            4.1|41|1)
-                section "Status do Node"
-                if command -v bitcoin-cli &>/dev/null; then
-                    step_info "Blocos sincronizados:"
-                    bitcoin-cli -conf="$BITCOIN_CONF" getblockcount 2>/dev/null || step_err "Falha ao conectar ao bitcoind. Servico rodando?"
-                else
-                    step_err "bitcoin-cli não encontrado"
-                fi
-                press_enter
-                ;;
-            4.2|42|2)
-                if [ -f "$BITCOIN_LOG" ]; then
-                    step_info "Exibindo as últimas 30 linhas. Pressione CTRL+C para voltar."
-                    echo ""
-                    tail -fn 30 "$BITCOIN_LOG"
-                else
-                    step_err "Log não encontrado em $BITCOIN_LOG"
-                    press_enter
-                fi
-                ;;
-            4.3|43|3)
-                step_info "Iniciando ${BITCOIN_SERVICE}..."
-                sudo systemctl start "$BITCOIN_SERVICE" 2>/dev/null || bitcoind -conf="$BITCOIN_CONF" -datadir="$BITCOIN_DIR" -daemon
-                step_ok "Comando de inicialização enviado"
-                press_enter
-                ;;
-            4.4|44|4)
-                step_info "Parando ${BITCOIN_SERVICE}..."
-                if command -v bitcoin-cli &>/dev/null; then
-                    bitcoin-cli -conf="$BITCOIN_CONF" stop 2>/dev/null || sudo systemctl stop "$BITCOIN_SERVICE"
-                    step_ok "Comando de parada enviado"
-                else
-                    step_err "bitcoin-cli não encontrado."
-                fi
-                press_enter
-                ;;
-            0|"")     return ;;
-            q|Q)      exit 0 ;;
-            *)        step_warn "Opção inválida"; sleep 1 ;;
+            4.1|41|1) bash "$BITCOIN_ENGINE" --profile halfin --plan || true; press_enter ;;
+            4.2|42|2) sudo bash "$BITCOIN_ENGINE" --profile halfin --install; press_enter ;;
+            4.3|43|3) bash "$BITCOIN_ENGINE" --profile halfin --status || true; press_enter ;;
+            4.4|44|4) sudo journalctl -u "$BITCOIN_SERVICE" -n 60 --no-pager || true; press_enter ;;
+            4.5|45|5) sudo systemctl start "$BITCOIN_SERVICE"; press_enter ;;
+            4.6|46|6) sudo systemctl stop "$BITCOIN_SERVICE"; press_enter ;;
+            0|"") return ;;
+            q|Q) exit 0 ;;
+            *) step_warn "Opção inválida"; sleep 1 ;;
         esac
     done
 }
-
 # ══════════════════════════════════════════════════════════════════════════════
 # OPÇÃO 5 — REINICIAR
 # ══════════════════════════════════════════════════════════════════════════════

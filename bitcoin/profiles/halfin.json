@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "profile": "halfin",
+  "implementation": "core",
+  "manifest": "bitcoin-core-29.1.json",
+  "mode": "pruned",
+  "max_prune_gib": 5,
+  "min_prune_gib": 1,
+  "data_dir": "/var/lib/ghostnodes/bitcoin/halfin-core",
+  "config_file": "/etc/ghostnodes/bitcoin/halfin-core.conf",
+  "service": "ghostnodes-bitcoin-halfin.service"
+}
