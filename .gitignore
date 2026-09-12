@@ -46,3 +46,7 @@ ghostnodes_backup/
 
 # Local generated secrets
 **/pass_auto_generated.txt
+
+# Local forensic Git backups retained outside the published monorepo.
+Archive/legacy/GhostNodes/git-backups/
+Archive/legacy/GhostNodes/git-repair/

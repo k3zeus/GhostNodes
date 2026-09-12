@@ -144,6 +144,8 @@ PY
 
 _configurar_bridge() {
     mkdir -p /etc/network/interfaces.d /etc/NetworkManager/conf.d
+    # Halfin owns the wired profile explicitly: DHCP is required for end0/WAN.
+    HALFIN_WAN_IFACE="$WAN_IFACE" bash "${HALFIN_DIR}/tools/configure_wan_dhcp.sh"
     # ifupdown owns WAN/bridge while NetworkManager owns only the client radio.
     # This is additive so unrelated administrator exclusions remain intact.
     cat > /etc/NetworkManager/conf.d/99-halfin-network-ownership.conf <<EOF
@@ -180,6 +182,25 @@ EOF
     nmcli device set end0 managed no 2>/dev/null || true
     nmcli device set "$AP_IFACE" managed no 2>/dev/null || true
     nmcli device set "$CLIENT_IFACE" managed yes 2>/dev/null || true
+    install -m 0755 "${HALFIN_DIR}/tools/end0_bootstrap.sh" /usr/local/sbin/halfin-end0-ensure
+    cat > /etc/systemd/system/halfin-end0-ensure.service <<EOF
+[Unit]
+Description=Halfin primary wired uplink recovery
+Wants=network-pre.target
+After=network-pre.target networking.service
+Before=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=HALFIN_PRIMARY_UPLINK=${WAN_IFACE}
+ExecStart=/usr/local/sbin/halfin-end0-ensure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable halfin-end0-ensure.service
     ifup "$BRIDGE_IFACE"
 }
 

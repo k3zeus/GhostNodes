@@ -23,12 +23,15 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # BOOTSTRAP — suporte a curl | bash (stdin não é TTY)
 # ══════════════════════════════════════════════════════════════════════════════
-if [ ! -t 0 ]; then
+if [ ! -t 0 ] && [ "${GN_BOOTSTRAPPED:-0}" != "1" ]; then
     _SELF="/tmp/nodenation_bootstrap.sh"
     cat > "$_SELF" && chmod +x "$_SELF"
-    exec bash "$_SELF" "$@" < /dev/tty
+    if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+        exec env GN_BOOTSTRAPPED=1 bash "$_SELF" "$@" < /dev/tty
+    fi
+    printf "[ERROR] Interactive installation needs a TTY. Use --detect-hw or --download-only for automation.\n" >&2
+    exit 2
 fi
-
 set -euo pipefail
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -117,8 +120,12 @@ _menu_read() {
 # ══════════════════════════════════════════════════════════════════════════════
 # BANNER
 # ══════════════════════════════════════════════════════════════════════════════
+clear_screen() {
+    command -v clear >/dev/null 2>&1 && clear >/dev/null 2>&1 || true
+}
+
 banner_root() {
-    clear
+    clear_screen
     printf "${BOLD}${CYAN}"
     echo ""
     echo "  ╔══════════════════════════════════════════════════════════════╗"
@@ -1618,7 +1625,7 @@ case "${1:-}" in
                 echo ""
                 step_info "Projeto não encontrado — iniciando download automático..."
                 press_enter
-                download_project || true
+                download_project || { step_err "Automatic download failed; fix it before opening the menu."; exit 1; }
             fi
         fi
         menu_principal
