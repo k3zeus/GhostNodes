@@ -2,6 +2,16 @@
 
 All notable changes to the GhostNodes Sovereign Dashboard will be documented in this file.
 
+## [v0.7beta] - 2026-09-12
+### Added
+- **Halfin Base:** registro automático para Debian, Ubuntu e Armbian em `arm64` e `x86_64`.
+- **Operação:** DHCP explícito para `end0`, recuperação no boot e linha de base de checagem.
+- **TDD:** cobertura para staging, DHCP, TUI sem `TERM` e elevação sudo única.
+
+### Fixed
+- **Bootstrap staging:** seleção determinística de `GhostNodes-main`; diretórios temporários não podem ser promovidos como projeto.
+- **Bootstrap privileges:** `curl | bash` solicita sudo uma única vez e mantém todas as etapas em processo root herdado.
+- **Bootstrap TUI:** falha explícita sem TTY e sem encerramento quando `TERM` está ausente.
 ## [1.2.2] - 2026-04-19
 ### Fixed
 - **nodenation bootstrap:** Default download source now follows `main.tar.gz` so `curl | bash` installs the current `main` branch snapshot, not `dev`.

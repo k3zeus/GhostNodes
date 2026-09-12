@@ -3,7 +3,7 @@
 > Orquestrador soberano monorepo para infraestrutura self-hosted.  
 > Bootstrap via `curl | bash`, TUI padronizado e módulos isolados em Docker.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-cyan?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.7beta-cyan?style=flat-square)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-ARM64%20%7C%20x86__64-blue?style=flat-square)](ARCHITECTURE.md)
 
@@ -11,7 +11,7 @@
 
 ## Instalação Rápida
 
-# Bootstrap remoto - sudo su (Debian/Ubuntu limpos)
+# Bootstrap remoto — solicita sudo uma única vez (Debian/Ubuntu limpos)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
 ```
@@ -27,7 +27,7 @@ sudo bash ./nodenation
 | Módulo | Descrição | Status |
 |--------|-----------|--------|
 | `nodenation` | Bootstrap manager — ponto de entrada único | ✅ Estável |
-| `halfin/` | Node AP/Router — OrangePi Zero 3 — arm64 | ✅ Estável |
+| `halfin/` | Base de rede/AP — Debian/Ubuntu arm64 e x86_64 | ✅ Estável |
 | `satoshi/` | Bitcoin Full/Pruned Node — Bitcoin Core/Knots | ✅ Estável |
 | `web/` | Dashboard Web — FastAPI + React | ✅ Estável |
 
