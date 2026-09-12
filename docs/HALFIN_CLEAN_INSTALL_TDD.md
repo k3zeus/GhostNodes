@@ -2,7 +2,7 @@
 
 ## Status
 
-**Aprovado para o padrão de recuperação de `end0`; a reinstalação limpa integral ainda conserva TDD-F01 e TDD-F02 abertos.**
+**Aprovado para DHCP, recuperação de `end0`, bootstrap e elevação única de privilégios; uma nova imagem limpa deve repetir o fluxo completo como regressão de lançamento.**
 
 Data: 2026-09-12
 Alvo: `192.168.101.92` (`orangepizero3`)

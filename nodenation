@@ -7,7 +7,7 @@
 # ╚══════════════════════════════════════════════════════════════╝
 #
 # Uso:
-#   curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
 #   sudo bash nodenation [--help | --download-only | --detect-hw]
 #
 # Fluxo correto:
@@ -174,7 +174,7 @@ show_help() {
     section "Ajuda — ${GN_PROJECT_NAME}"
     echo ""
     printf "  ${BOLD}USAGE:${RESET}\n"
-    printf "    ${CYAN}sudo bash nodenation${RESET}               Interactive Menu\n"
+    printf "    ${CYAN}bash nodenation${RESET}                    Interactive Menu (solicita sudo uma vez)\n"
     printf "    ${CYAN}sudo bash nodenation --help${RESET}         This help message\n"
     printf "    ${CYAN}sudo bash nodenation --web-start${RESET}    Start Dashboard service\n"
     printf "    ${CYAN}sudo bash nodenation --web-stop${RESET}     Stop Dashboard service\n"
@@ -1558,8 +1558,16 @@ menu_principal() {
 # PONTO DE ENTRADA
 # ══════════════════════════════════════════════════════════════════════════════
 if [ "$EUID" -ne 0 ]; then
-    printf "\n  ${RED}[ERRO]${RESET} Execute como root: ${BOLD}sudo bash nodenation${RESET}\n\n"
-    exit 1
+    command -v sudo >/dev/null 2>&1 || {
+        printf "\n  ${RED}[ERRO]${RESET} sudo não está disponível neste sistema.\n\n"
+        exit 1
+    }
+    printf "\n  ${DIM}Solicitando autorização administrativa uma única vez...${RESET}\n"
+    sudo -v || {
+        printf "\n  ${RED}[ERRO]${RESET} Autorização sudo não concedida.\n\n"
+        exit 1
+    }
+    exec sudo -n env GN_BOOTSTRAPPED=1 bash "$0" "$@"
 fi
 
 # Cria diretórios temporários

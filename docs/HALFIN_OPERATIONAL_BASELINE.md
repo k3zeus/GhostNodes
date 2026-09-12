@@ -42,3 +42,12 @@ bash -n nodenation halfin/pre_install.sh halfin/tools/configure_wan_dhcp.sh
 Essas verificações cobrem a migração DHCP, recuperação do uplink, bootstrap sem TTY, TUI sem `TERM`, registro do perfil Orange Pi e fluxo de instalação Halfin.
 
 Segredos, chaves, PSKs e senhas não fazem parte desta linha de base.
+## Execução inicial
+
+O comando público de instalação é:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/k3zeus/GhostNodes/refs/heads/main/nodenation | bash
+```
+
+Em terminal interativo, o bootstrap solicita autorização sudo uma única vez e mantém todas as etapas no mesmo processo root. `sudo su` não é necessário. Em automação sem TTY, usar somente os modos não interativos documentados; a instalação interativa falha de forma explícita antes de alterar o sistema.
