@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Conservative write-reduction defaults for Halfin installations.
 set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
 backup_fstab() {
     install -d -m 0750 /etc/ghostnodes/backups
