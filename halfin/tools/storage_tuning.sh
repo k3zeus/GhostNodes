@@ -18,9 +18,14 @@ enable_noatime_root() {
     tmp="$(mktemp /etc/fstab.halfin.XXXXXX)"
     awk '
         $1 !~ /^#/ && $2 == "/" {
-            count=split($4, options, ","); found=0
-            for (i=1; i<=count; i++) if (options[i] == "noatime") found=1
-            if (!found) $4=$4 ",noatime"
+            count=split($4, options, ","); found=0; rebuilt=""
+            for (i=1; i<=count; i++) {
+                if (options[i] ~ /^commit=/) continue
+                if (options[i] == "noatime") found=1
+                rebuilt=rebuilt (rebuilt == "" ? "" : ",") options[i]
+            }
+            if (!found) rebuilt=rebuilt ",noatime"
+            $4=rebuilt
         }
         { print }
     ' /etc/fstab > "$tmp"
