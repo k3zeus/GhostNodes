@@ -12,7 +12,7 @@ Um SSD e recomendado para o diretorio de dados do Core. Quando o diretorio estiv
 
 | Ajuste | Implementacao | Limite consciente |
 | --- | --- | --- |
-| Swap | instala e habilita `zram-tools`, com ZRAM LZ4 de 50% da RAM e prioridade 100; desativa `/swapfile` e `dphys-swapfile` quando presentes | Nao altera swap externo nem promete eliminar escrita do banco Bitcoin. |
+| Swap | preserva ZRAM ja ativo fornecido pela imagem; caso contrario instala `zram-tools`, com ZRAM LZ4 de 50% da RAM e prioridade 100; desativa `/swapfile` e `dphys-swapfile` quando presentes | Nao altera swap externo nem promete eliminar escrita do banco Bitcoin. |
 | Acessos de arquivo | persiste `noatime` apenas na entrada existente de `/` no `fstab`, preservando uma copia anterior em `/etc/ghostnodes/backups/` | Se nao houver entrada da raiz, registra o fato e nao inventa uma. |
 | Journal | mantem `Storage=auto`, com 100 MiB maximos, 14 dias de retencao e rotacao em arquivos de 16 MiB | Logs sobrevivem a reboot; nao sao descartados silenciosamente como seriam com `Storage=volatile`. |
 | Memoria | `vm.swappiness=10` | ZRAM e reserva comprimida, nao substitui RAM nem um SSD. |
@@ -24,7 +24,7 @@ Um SSD e recomendado para o diretorio de dados do Core. Quando o diretorio estiv
 
 1. `python -B -m unittest tests.test_bitcoin_halfin -v` valida a confirmacao MicroSD, a ausencia de bloqueio e o registro do estagio de armazenamento.
 2. `bash -n bitcoin/bitcoin-node.sh halfin/tools/storage_tuning.sh halfin/pre_install.sh` valida a sintaxe.
-3. Em um Halfin limpo, executar o pre-instalador e verificar: `swapon --show`, `zramctl`, `findmnt -no OPTIONS /`, `journalctl --disk-usage`, `sysctl vm.swappiness`.
+3. Em um Halfin limpo, executar o pre-instalador e verificar: `swapon --show`, `findmnt -no OPTIONS /`, `journalctl --disk-usage`, `sysctl vm.swappiness`.
 4. No menu Bitcoin em midia MicroSD, confirmar que cancelar `MICROSD` nao instala nada e que a confirmacao seguida de `s` continua normalmente.
 
 Nao existe teste de sincronizacao mainnet nesta alteracao. A instalacao do Core continua exigindo a confirmacao do operador e o download verificado pelo motor compartilhado.

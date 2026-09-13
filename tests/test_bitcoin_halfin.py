@@ -46,6 +46,8 @@ class HalfinBitcoinProfileTests(unittest.TestCase):
         installer = (ROOT / 'halfin/pre_install.sh').read_text(encoding='utf-8')
         self.assertIn('etapa_armazenamento', installer)
         self.assertIn('zram-tools', tuning)
+        self.assertIn('zram_is_active()', tuning)
+        self.assertIn('preserving the image provider', tuning)
         self.assertIn('SystemMaxUse=100M', tuning)
         self.assertIn('MaxRetentionSec=14day', tuning)
         self.assertIn('vm.swappiness=10', tuning)

@@ -35,7 +35,21 @@ enable_noatime_root() {
         echo 'Halfin storage: noatime será aplicado no próximo boot.'
 }
 
+zram_is_active() {
+    command -v swapon >/dev/null 2>&1 || return 1
+    swapon --noheadings --raw --output NAME 2>/dev/null | grep -q '^/dev/zram'
+}
+
 configure_zram() {
+    # Some board images already provide ZRAM. Do not replace an active device.
+    if zram_is_active; then
+        echo 'Halfin storage: ZRAM already active; preserving the image provider.'
+        if systemctl is-failed --quiet zramswap.service 2>/dev/null; then
+            systemctl disable zramswap.service || true
+            systemctl reset-failed zramswap.service || true
+        fi
+        return 0
+    fi
     DEBIAN_FRONTEND=noninteractive apt-get install -y zram-tools
     cat > /etc/default/zramswap <<'EOF'
 # Managed by GhostNodes Halfin. Keep swap compressed in RAM, never in MicroSD.
