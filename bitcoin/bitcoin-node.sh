@@ -65,6 +65,21 @@ free_gib() {
     local probe; probe="$(parent_with_space "$DATA_DIR")"
     df -Pk "$probe" | awk 'NR==2 {print int($4/1024/1024)}'
 }
+storage_source() {
+    local probe
+    probe="$(parent_with_space "$DATA_DIR")"
+    findmnt -n -o SOURCE -T "$probe" 2>/dev/null || df -Pk "$probe" | awk 'NR==2 {print $1}'
+}
+uses_microsd() {
+    [ "${GN_BITCOIN_STORAGE_CLASS:-}" = "microsd" ] && return 0
+    [ "${GN_BITCOIN_STORAGE_CLASS:-}" = "durable" ] && return 1
+    local source parent
+    source="$(storage_source)"
+    case "$source" in /dev/mmcblk*) return 0 ;; esac
+    parent="$(lsblk -no PKNAME "$source" 2>/dev/null | head -1 || true)"
+    case "$parent" in mmcblk*) return 0 ;; esac
+    return 1
+}
 calculate_prune() {
     local free="$1"
     local candidate=$((free / 3))
@@ -86,6 +101,7 @@ show_plan() {
     echo "Arquitetura: $ARCH"
     echo "Modo: $MODE"
     echo "Espaço livre no filesystem de dados: ${FREE_GIB} GiB"
+    echo "Filesystem de dados: $(storage_source)"
     if [ -z "$PRUNE_GIB" ]; then
         echo "Resultado: RECUSAR — menos de ${MIN_PRUNE_GIB} GiB podem ser reservados para prune mantendo 2/3 livres"
         return 1
@@ -95,6 +111,9 @@ show_plan() {
     echo "Artefato: $FILENAME"
     echo "URL: $URL"
     echo "SHA256: $SHA256"
+    if uses_microsd; then
+        echo "Mídia: MicroSD detectado — instalação permitida com confirmação adicional de risco."
+    fi
 }
 status() {
     if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet "$SERVICE"; then
@@ -126,6 +145,16 @@ verify_artifact() {
 install_node() {
     [ "$(id -u)" -eq 0 ] || { echo 'A instalação requer sudo.' >&2; return 1; }
     show_plan
+    if uses_microsd; then
+        cat <<'EOF'
+AVISO DE ARMAZENAMENTO: os dados do Bitcoin Core serão gravados no MicroSD.
+O prune limita blocos retidos, mas a sincronização e o chainstate continuam
+com escrita intensa. Para maior vida útil, use um SSD para o diretório de dados.
+Digite MICROSD para confirmar que entende e deseja continuar:
+EOF
+        read -r media_answer
+        [ "$media_answer" = "MICROSD" ] || { echo 'Instalação cancelada: risco de MicroSD não confirmado.'; return 0; }
+    fi
     printf 'Confirmar instalação do Bitcoin Core prunado conforme o plano? [s/N]: '
     read -r answer
     [ "$answer" = s ] || [ "$answer" = S ] || { echo 'Instalação cancelada.'; return 0; }
@@ -155,6 +184,11 @@ install_node() {
 server=1
 prune=$((PRUNE_GIB * 1024))
 txindex=0
+disablewallet=1
+persistmempool=0
+debug=0
+shrinkdebugfile=1
+printtoconsole=0
 listen=1
 rpcbind=127.0.0.1
 rpcallowip=127.0.0.1

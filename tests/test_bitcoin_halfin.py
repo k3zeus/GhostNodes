@@ -32,6 +32,25 @@ class HalfinBitcoinProfileTests(unittest.TestCase):
         self.assertIn('tar -tzf', ENGINE)
         self.assertIn('--verify-artifact', ENGINE)
 
+    def test_microsd_is_warned_but_remains_an_explicitly_optional_install(self):
+        self.assertIn('uses_microsd()', ENGINE)
+        self.assertIn('/dev/mmcblk*', ENGINE)
+        self.assertIn('Digite MICROSD', ENGINE)
+        self.assertIn('MICROSD', ENGINE)
+        self.assertNotIn('RECUSAR — MicroSD', ENGINE)
+        self.assertIn('disablewallet=1', ENGINE)
+        self.assertIn('persistmempool=0', ENGINE)
+
+    def test_halfin_storage_stage_is_registered_and_safe_by_default(self):
+        tuning = (ROOT / 'halfin/tools/storage_tuning.sh').read_text(encoding='utf-8')
+        installer = (ROOT / 'halfin/pre_install.sh').read_text(encoding='utf-8')
+        self.assertIn('etapa_armazenamento', installer)
+        self.assertIn('zram-tools', tuning)
+        self.assertIn('SystemMaxUse=100M', tuning)
+        self.assertIn('MaxRetentionSec=14day', tuning)
+        self.assertIn('vm.swappiness=10', tuning)
+        self.assertIn('noatime', tuning)
+
     def test_halfin_menu_delegates_to_shared_root_engine(self):
         self.assertIn('BITCOIN_ENGINE="$GN_ROOT/bitcoin/bitcoin-node.sh"', MENU)
         self.assertIn('--profile halfin --install', MENU)

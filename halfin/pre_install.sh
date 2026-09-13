@@ -114,6 +114,10 @@ etapa_ferramentas() {
     step_ok 'Ferramentas instaladas'
 }
 
+etapa_armazenamento() {
+    bash "${HALFIN_DIR}/tools/storage_tuning.sh"
+}
+
 etapa_alias_wifi() {
     step_info 'Nomes das interfaces preservados; configure HALFIN_AP_IFACE se necessario.'
 }
@@ -322,7 +326,7 @@ etapa_chown() {
 main() {
     local stage rc
     local stages=(etapa_usuario etapa_sourcelist etapa_remove_docker etapa_hostname
-        etapa_update etapa_ferramentas etapa_alias_wifi etapa_orange3 etapa_extras
+        etapa_update etapa_ferramentas etapa_armazenamento etapa_alias_wifi etapa_orange3 etapa_extras
         etapa_dashboard etapa_aliases etapa_remove_legado etapa_chown)
     if [ "${1:-}" = --step ]; then
         stage="${2:-}"

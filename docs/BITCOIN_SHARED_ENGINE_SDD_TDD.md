@@ -29,7 +29,8 @@ A assinatura é baixada e preservada como artefato de verificação; a próxima 
 | Política Halfin, hashes e delegação do menu | 4/4 testes Python passaram. |
 | Plano AMD64 com 14 GiB simulados | Prune calculado: 4 GiB; nenhum download ou escrita. |
 | Plano físico ARM64 no Orange Pi `.92` | ARM64 detectado; 55 GiB livres; prune limitado a 5 GiB. |
-| Download físico ARM64 no Orange Pi `.92` | SHA256 oficial validado e tarball listado com `bitcoind` e `bitcoin-cli`; arquivos temporários removidos; nenhum serviço instalado. |`n| Plano e download físico AMD64 no Node `.132` | `x86_64` detectado; 11 GiB livres; prune calculado em 3 GiB; SHA256 e tarball Core 29.1 validados; arquivos temporários removidos. |
+| Download físico ARM64 no Orange Pi `.92` | SHA256 oficial validado e tarball listado com `bitcoind` e `bitcoin-cli`; arquivos temporários removidos; nenhum serviço instalado. |
+| Plano e download físico AMD64 no Node `.132` | `x86_64` detectado; 11 GiB livres; prune calculado em 3 GiB; SHA256 e tarball Core 29.1 validados; arquivos temporários removidos. |
 
 ## Pendente
 
