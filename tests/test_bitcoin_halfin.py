@@ -49,6 +49,7 @@ class HalfinBitcoinProfileTests(unittest.TestCase):
         self.assertIn('zram_is_active()', tuning)
         self.assertIn('export PATH=/usr/sbin:/usr/bin:/sbin:/bin', tuning)
         self.assertIn('preserving the image provider', tuning)
+        self.assertIn('swapon --show --noheadings --raw --output NAME', tuning)
         self.assertIn('SystemMaxUse=100M', tuning)
         self.assertIn('MaxRetentionSec=14day', tuning)
         self.assertIn('vm.swappiness=10', tuning)

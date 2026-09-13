@@ -38,7 +38,7 @@ enable_noatime_root() {
 
 zram_is_active() {
     command -v swapon >/dev/null 2>&1 || return 1
-    swapon --noheadings --raw --output NAME 2>/dev/null | grep -q '^/dev/zram'
+    swapon --show --noheadings --raw --output NAME 2>/dev/null | grep -q '^/dev/zram'
 }
 
 configure_zram() {
