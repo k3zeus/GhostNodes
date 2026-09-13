@@ -13,9 +13,9 @@ Um SSD e recomendado para o diretorio de dados do Core. Quando o diretorio estiv
 | Ajuste | Implementacao | Limite consciente |
 | --- | --- | --- |
 | Swap | preserva ZRAM ja ativo fornecido pela imagem; caso contrario instala `zram-tools`, com ZRAM LZ4 de 50% da RAM e prioridade 100; desativa `/swapfile` e `dphys-swapfile` quando presentes | Nao altera swap externo nem promete eliminar escrita do banco Bitcoin. |
-| Acessos de arquivo | persiste `noatime` apenas na entrada existente de `/` no `fstab`, preservando uma copia anterior em `/etc/ghostnodes/backups/` | Se nao houver entrada da raiz, registra o fato e nao inventa uma. |
+| Acessos de arquivo | persiste `noatime`, remove `commit=600` legado e remonta com o intervalo seguro padrao (`commit=5`) apenas na entrada existente de `/` no `fstab`, preservando uma copia anterior em `/etc/ghostnodes/backups/` | Se nao houver entrada da raiz, registra o fato e nao inventa uma. |
 | Journal | mantem `Storage=auto`, com 100 MiB maximos, 14 dias de retencao e rotacao em arquivos de 16 MiB | Logs sobrevivem a reboot; nao sao descartados silenciosamente como seriam com `Storage=volatile`. |
-| Memoria | `vm.swappiness=10` | ZRAM e reserva comprimida, nao substitui RAM nem um SSD. |
+| Memoria | `vm.swappiness=10`, aplicado tambem imediatamente | ZRAM e reserva comprimida, nao substitui RAM nem um SSD. |
 | Core Halfin | `disablewallet=1`, `persistmempool=0`, `debug=0`, `shrinkdebugfile=1` e `printtoconsole=0` | O Core permanece um no validador prunado; nao ha carteira local. |
 
 `commit=600` nao e aplicado. O ganho potencial de escrita nao justifica ampliar a janela de perda de dados apos queda de energia em um no validador.

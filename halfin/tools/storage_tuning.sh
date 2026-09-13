@@ -32,7 +32,7 @@ enable_noatime_root() {
     ' /etc/fstab > "$tmp"
     install -m 0644 "$tmp" /etc/fstab
     rm -f "$tmp"
-    mount -o remount,noatime / 2>/dev/null || \
+    mount -o remount,noatime,commit=5 / 2>/dev/null || \
         echo 'Halfin storage: noatime será aplicado no próximo boot.'
 }
 
@@ -85,11 +85,13 @@ EOF
 
 configure_memory_policy() {
     install -d -m 0755 /etc/sysctl.d
-    cat > /etc/sysctl.d/60-halfin-memory.conf <<'EOF'
+    rm -f /etc/sysctl.d/60-halfin-memory.conf
+    cat > /etc/sysctl.d/99-halfin-memory.conf <<'EOF'
 # Prefer RAM; zram remains available as a compressed last resort.
 vm.swappiness=10
 EOF
     sysctl --system >/dev/null
+    sysctl -w vm.swappiness=10 >/dev/null
 }
 
 main() {

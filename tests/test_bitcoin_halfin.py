@@ -53,8 +53,10 @@ class HalfinBitcoinProfileTests(unittest.TestCase):
         self.assertIn('SystemMaxUse=100M', tuning)
         self.assertIn('MaxRetentionSec=14day', tuning)
         self.assertIn('vm.swappiness=10', tuning)
+        self.assertIn('sysctl -w vm.swappiness=10', tuning)
         self.assertIn('noatime', tuning)
         self.assertIn('^commit=', tuning)
+        self.assertIn('commit=5', tuning)
 
     def test_halfin_menu_delegates_to_shared_root_engine(self):
         self.assertIn('BITCOIN_ENGINE="$GN_ROOT/bitcoin/bitcoin-node.sh"', MENU)
