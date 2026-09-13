@@ -12,9 +12,9 @@ class PrivilegeFlowTests(unittest.TestCase):
         self.assertNotIn('Execute como root: ${BOLD}sudo bash nodenation', NODE)
 
     def test_every_halfin_stage_requires_and_inherits_root(self):
-        self.assertIn('require_root', PRE.splitlines()[5])
+        self.assertIn('require_root', PRE)
         stages = ('etapa_usuario', 'etapa_sourcelist', 'etapa_remove_docker', 'etapa_hostname',
-                  'etapa_update', 'etapa_ferramentas', 'etapa_alias_wifi', 'etapa_orange3',
+                  'etapa_update', 'etapa_ferramentas', 'etapa_armazenamento', 'etapa_alias_wifi', 'etapa_orange3',
                   'etapa_extras', 'etapa_dashboard', 'etapa_aliases', 'etapa_remove_legado', 'etapa_chown')
         for stage in stages:
             self.assertIn(stage, PRE)

@@ -3,6 +3,7 @@
 set -euo pipefail
 _GN_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${_GN_SELF}/lib/init.sh"
+source "${_GN_SELF}/tools/standard_hardware.sh"
 require_root
 export GN_USER GN_ROOT HALFIN_DIR
 PLEB_HOME="$(getent passwd "$GN_USER" | cut -d: -f6 || true)"
@@ -66,6 +67,7 @@ etapa_usuario() {
     usermod -aG sudo "$GN_USER"
     mkdir -p "$PLEB_HOME"
     chown "${GN_USER}:${GN_USER}" "$PLEB_HOME"
+    halfin_migrate_orangepi_user
 }
 
 etapa_sourcelist() {
@@ -77,7 +79,7 @@ etapa_sourcelist() {
             step_err 'Distribuicao nao suportada: requer Debian/Ubuntu.'; return 1;
         } ;;
     esac
-    step_ok "Repositorios de ${PRETTY_NAME:-$ID} preservados"
+    halfin_apply_orangepi_apt
 }
 
 etapa_remove_docker() {
@@ -119,7 +121,9 @@ etapa_armazenamento() {
 }
 
 etapa_alias_wifi() {
-    step_info 'Nomes das interfaces preservados; configure HALFIN_AP_IFACE se necessario.'
+    halfin_configure_wifi_roles
+    [ -n "${HALFIN_WIFI_AP_IFACE:-}" ] && AP_IFACE="$HALFIN_WIFI_AP_IFACE"
+    [ -n "${HALFIN_WIFI_CLIENT_IFACE:-}" ] && CLIENT_IFACE="$HALFIN_WIFI_CLIENT_IFACE"
 }
 
 _detectar_wan() {
