@@ -1,6 +1,6 @@
 # TDD — serviços OSINT compartilhados
 
-**Data:** 2026-09-18  
+**Data:** 2026-09-18
 **Escopo:** scripts em `services/osint/`, perfil Halfin e `services/scripts/scan_network.sh`.
 
 ## Critérios aprovados
