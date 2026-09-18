@@ -104,6 +104,7 @@ The system is designed to be "Hardware Aware":
 GhostNodes/
 ├── nodenation           # Main CLI Binary/Script
 ├── modules-install.sh   # Master module orchestrator
+├── services/            # Shared-service catalog; root-specific overlays stay in <root>/services/
 ├── web/                 # Dashboard (React/FastAPI)
 ├── halfin/              # Networking, Tools & Nginx
 │   └── docker/nginx/    # Reverse proxy configs for all modules

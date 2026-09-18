@@ -99,7 +99,8 @@ sudo bash nostr/install.sh
 ## Padrão do Projeto
 
 - Bootstrap único pelo `nodenation`
-- Subprojetos com `pre_install.sh`, `install.sh`, `docker/`, `README.md`
+- Projetos Raiz com `pre_install.sh`, `install.sh`, `README.md` e perfis locais em `<raiz>/services/<serviço>/`
+- Serviços reutilizáveis centralizados em [`services/`](services/README.md); cada Raiz declara seu perfil em `<raiz>/services/<serviço>/manifest.env` conforme o [`contrato`](services/CONTRACT.md)
 - Módulos extras com `docker/docker-compose.yml`, `docker/.env.example`, `install.sh`
 - TUI com navegação padronizada: `(1) ...`, `(q) Exit`, `(0) Back`
 - Variáveis globais prefixadas com `GN_`
