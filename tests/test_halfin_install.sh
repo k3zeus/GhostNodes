@@ -129,6 +129,35 @@ EXTRAS_CALLS=$(sed -n '/^etapa_extras()/,/^}/p' "$PRE_INSTALL" 2>/dev/null | gre
 assert_ok "etapa_extras() contains _run_extra calls" test "$EXTRAS_CALLS" -gt 0
 
 # ══════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
+# Section 4b: bridge activation idempotency
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n${BOLD}  Section: Bridge Activation Idempotency${RESET}\n"
+
+# An active bridge already holding the configured address must not be brought up
+# again through ifup; ifupdown returns an error in that state.
+BRIDGE_FUNCTION=$(sed -n '/^_configurar_bridge()/,/^}/p' "$PRE_INSTALL")
+assert_ok "active bridge address is detected before ifup" bash -c 'printf "%s\n" "$1" | grep -Fq '\''ip -4 addr show dev "$BRIDGE_IFACE" | grep -Fq "${BRIDGE_IP}/"'\''' _ "$BRIDGE_FUNCTION"
+assert_ok "active bridge uses link-up without rerunning ifup" bash -c 'printf "%s\n" "$1" | grep -Fq '\''ip link set "$BRIDGE_IFACE" up'\''' _ "$BRIDGE_FUNCTION"
+# ═════════════════════════════════════════════════════════════════════════════
+# Section 4c: operational user access
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n${BOLD}  Section: Operational User Access${RESET}\n"
+
+# Archive deployment may make only GN_ROOT inaccessible. The contained code
+# directories already retain their published modes; no recursive permission change.
+CHOWN_FUNCTION=$(sed -n '/^etapa_chown()/,/^}/p' "$PRE_INSTALL")
+assert_ok "project root is traversable for the menu user" bash -c 'printf "%s\n" "$1" | grep -Fq '\''chmod 0755 "$GN_ROOT"'\''' _ "$CHOWN_FUNCTION"
+assert_ok "ghostnode entrypoint remains executable" bash -c 'printf "%s\n" "$1" | grep -Fq '\''chmod 0755 "$GN_ROOT/ghostnode"'\''' _ "$CHOWN_FUNCTION"
+# ═════════════════════════════════════════════════════════════════════════════
+# Section 4d: menu runtime log location
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n${BOLD}  Section: Menu Runtime Log Location${RESET}\n"
+
+# The menu runs as GN_USER after the code archive is installed root-owned.
+# Its writable log must therefore be held in the user's private runtime state.
+GHOSTNODE="$PROJECT_ROOT/ghostnode"
+assert_ok "menu log uses the private Halfin state directory" grep -Fq 'LOG_DIR="${GN_LOG_DIR:-/home/${GN_USER}/.local/state/halfin/logs}"' "$GHOSTNODE"
 # Section 5: halfin/lib/init.sh loads correctly
 # ══════════════════════════════════════════════════════════════════════════════
 printf "\n${BOLD}  Section: Library Loading — init.sh${RESET}\n"

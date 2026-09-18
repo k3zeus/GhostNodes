@@ -15,6 +15,7 @@ WPA2_PASS="${HALFIN_WPA_PASS:-Mudar102030}"
 AP_IFACE="${HALFIN_AP_IFACE:-wlan0}"
 BRIDGE_IFACE="${HALFIN_BRIDGE:-br0}"
 CLIENT_IFACE="${HALFIN_CLIENT_IFACE:-wlan1}"
+PRIMARY_WAN_IFACE="${HALFIN_PRIMARY_WAN_IFACE:-end0}"
 BRIDGE_IP="${HALFIN_BRIDGE_IP:-10.21.21.1}"
 NETMASK="${HALFIN_NETMASK:-255.255.255.0}"
 DHCP_START="${HALFIN_DHCP_START:-10.21.21.100}"
@@ -127,13 +128,20 @@ etapa_alias_wifi() {
 }
 
 _detectar_wan() {
-    WAN_IFACE="${HALFIN_WAN_IFACE:-$(ip -4 route show default | awk 'NR==1{print $5}')}"
+    # On Orange Pi the wired uplink is the stable primary contract. Do not
+    # infer it from a temporary Wi-Fi default route during installation.
+    if [ -n "${HALFIN_WAN_IFACE:-}" ]; then
+        WAN_IFACE="$HALFIN_WAN_IFACE"
+    elif ip link show "$PRIMARY_WAN_IFACE" >/dev/null 2>&1; then
+        WAN_IFACE="$PRIMARY_WAN_IFACE"
+    else
+        WAN_IFACE="$(ip -4 route show default | awk 'NR==1{print $5}')"
+    fi
     [ -n "$WAN_IFACE" ] && [ "$WAN_IFACE" != "$AP_IFACE" ] &&
         [ "$WAN_IFACE" != "$BRIDGE_IFACE" ] && ip link show "$WAN_IFACE" >/dev/null || {
         step_err 'WAN invalida ou compartilhada com o AP.'; return 1;
     }
 }
-
 _validar_rede() {
     [[ "$AP_IFACE" =~ ^[a-zA-Z0-9_.-]{1,15}$ ]] || return 1
     [[ "$BRIDGE_IFACE" =~ ^[a-zA-Z0-9_.-]{1,15}$ ]] || return 1
@@ -155,7 +163,7 @@ PY
 _configurar_bridge() {
     mkdir -p /etc/network/interfaces.d /etc/NetworkManager/conf.d
     # Halfin owns the wired profile explicitly: DHCP is required for end0/WAN.
-    HALFIN_WAN_IFACE="$WAN_IFACE" bash "${HALFIN_DIR}/tools/configure_wan_dhcp.sh"
+    HALFIN_WAN_IFACE="$PRIMARY_WAN_IFACE" bash "${HALFIN_DIR}/tools/configure_wan_dhcp.sh"
     # ifupdown owns WAN/bridge while NetworkManager owns only the client radio.
     # This is additive so unrelated administrator exclusions remain intact.
     cat > /etc/NetworkManager/conf.d/99-halfin-network-ownership.conf <<EOF
@@ -203,7 +211,7 @@ Before=network-online.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-Environment=HALFIN_PRIMARY_UPLINK=${WAN_IFACE}
+Environment=HALFIN_PRIMARY_UPLINK=${PRIMARY_WAN_IFACE}
 ExecStart=/usr/local/sbin/halfin-end0-ensure
 
 [Install]
@@ -211,7 +219,13 @@ WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
     systemctl enable halfin-end0-ensure.service
-    ifup "$BRIDGE_IFACE"
+    # Re-running the Orange Pi stage must preserve an active bridge.  ifupdown
+    # returns failure when br0 already holds its declared address.
+    if ip -4 addr show dev "$BRIDGE_IFACE" | grep -Fq "${BRIDGE_IP}/"; then
+        ip link set "$BRIDGE_IFACE" up
+    else
+        ifup "$BRIDGE_IFACE"
+    fi
 }
 
 _remover_nm_polkit_legado() {
@@ -323,6 +337,10 @@ etapa_chown() {
             "${HALFIN_DIR}/var/wifi_scan.db" "$WIFI_STATE_DB"
         step_info 'Banco Wi-Fi legado migrado para o estado do usuário.'
     fi
+    # Archive deployments are root-owned; the operational user must traverse
+    # only the project root to invoke the root-owned menu entrypoint.
+    chmod 0755 "$GN_ROOT"
+    chmod 0755 "$GN_ROOT/ghostnode"
     chown "${GN_USER}:${GN_USER}" "$PLEB_HOME"
     step_ok 'Propriedade dos dados dos servicos preservada.'
 }

@@ -14,6 +14,10 @@ log() {
     printf '%s\n' "$*"
 }
 
+has_carrier() {
+    "$IP_BIN" -o link show dev "$IFACE" | grep -qv 'NO-CARRIER'
+}
+
 has_ipv4() {
     "$IP_BIN" -4 -o addr show dev "$IFACE" scope global | grep -q .
 }
@@ -34,6 +38,13 @@ static_gateway() {
     log "uplink $IFACE is absent"
     exit 2
 }
+
+# A disconnected Ethernet cable is normal when wlan1 is the failover uplink.
+# It must not make the boot guard fail or launch a competing DHCP client.
+if ! has_carrier; then
+    log "uplink $IFACE has no carrier; no wired recovery required"
+    exit 0
+fi
 
 if has_ipv4 && has_default_route; then
     log "uplink $IFACE already has IPv4 and default route"

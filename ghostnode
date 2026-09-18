@@ -37,7 +37,7 @@ BITCOIN_ENGINE="$GN_ROOT/bitcoin/bitcoin-node.sh"
 
 TOOLS_DIR="$HALFIN_DIR/tools"
 DOCKER_DIR="$HALFIN_DIR/docker"
-LOG_DIR="$HALFIN_DIR/logs"
+LOG_DIR="${GN_LOG_DIR:-/home/${GN_USER}/.local/state/halfin/logs}"
 LOG_FILE="$LOG_DIR/ghostnode_$(date +%Y%m%d).log"
 
 # ─── Cores e símbolos (Divergência removida, agora depende EXCLUSIVAMENTE de core_lib.sh) ──
@@ -121,6 +121,9 @@ fi
 # O BULLET list style não existia em origens cruzadas — fix:
 BULLET="${DIM}•${RESET}"
 
+# Motor TUI central: visual, teclas e layouts adaptativos.
+source "$GN_ROOT/lib/tui_engine.sh"
+
 # Wrapper para aproveitar o banner unificado mas com o título desta sub-sessão
 banner() {
     main_banner "  ◈  G H O S T   N O D E S  —  H A L F I N  ◈"
@@ -128,6 +131,25 @@ banner() {
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+GN_SUDO_READY=0
+ensure_sudo() {
+    [ "${EUID:-$(id -u)}" -eq 0 ] && return 0
+    [ "$GN_SUDO_READY" = 1 ] && sudo -n true 2>/dev/null && return 0
+    step_info "Autorizacao sudo necessaria para esta operacao."
+    sudo -v || { step_err "Autorizacao sudo nao concedida."; return 1; }
+    GN_SUDO_READY=1
+}
+sudo_run() {
+    ensure_sudo || return 1
+    sudo -n "$@"
+}
+run_root_script() {
+    local script="$1" desc="$2"
+    ensure_sudo || return 1
+    log_section "$desc"
+    sudo -n env GN_TUI_CHILD=1 GN_USER="$GN_USER" GN_ROOT="$GN_ROOT" bash "$script"
+}
+
 # UTILITÁRIO: executa script externo com fallback
 # ══════════════════════════════════════════════════════════════════════════════
 run_script() {
@@ -288,6 +310,7 @@ menu_sistema_configuracoes() {
     banner
     section "1.3 — Configurações e Correções"
     log_section "Sistema - Configurações"
+    ensure_sudo || { press_enter_or_back; return; }
     echo ""
 
     ERROS=0
@@ -377,13 +400,14 @@ menu_sistema_atualizacoes() {
     banner
     section "1.4 — Atualizações"
     log_section "Sistema - Atualizações"
+    ensure_sudo || { press_enter_or_back; return; }
     echo ""
 
     step_info "Verificando atualizações disponíveis..."
     echo ""
 
     set +e
-    apt-get update -qq 2>&1 | while IFS= read -r L; do
+    sudo -n apt-get update -qq 2>&1 | while IFS= read -r L; do
         printf "  ${DIM}%s${RESET}\n" "$L"
     done
 
@@ -409,7 +433,7 @@ menu_sistema_atualizacoes() {
         sep
         log_msg "INFO" "Iniciando apt upgrade ($UPGRADABLE pacotes)"
         set +e
-        DEBIAN_FRONTEND=noninteractive apt-get upgrade -y 2>&1 | while IFS= read -r L; do
+        sudo -n env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y 2>&1 | while IFS= read -r L; do
             if echo "$L" | grep -qiE "^E:|error|fatal"; then
                 printf "  ${RED}%s${RESET}\n" "$L"
             else
@@ -468,10 +492,11 @@ menu_rede_status() {
     banner
     section "2.1 — Status Wi-Fi"
     log_section "Rede - Status"
+    ensure_sudo || { press_enter_or_back; return; }
     echo ""
 
     step_info "Executando scan de redes..."
-    run_script "$TOOLS_DIR/wifi_scan.sh" "WiFi Scan" || true
+    GN_WIFI_USE_SUDO=1 run_script "$TOOLS_DIR/wifi_scan.sh" "WiFi Scan" || true
 
     echo ""
     step_info "Exibindo banco de dados de redes..."
@@ -485,8 +510,9 @@ menu_rede_conectar() {
     banner
     section "2.2 — Conectar Wi-Fi"
     log_section "Rede - Conectar"
+    ensure_sudo || { press_enter_or_back; return; }
 
-    run_script "$TOOLS_DIR/wifi_connect.sh" "WiFi Connect" || true
+    GN_WIFI_USE_SUDO=1 run_script "$TOOLS_DIR/wifi_connect.sh" "WiFi Connect" || true
     press_enter_or_back
 }
 
@@ -556,7 +582,7 @@ menu_rede_diagnostico() {
         for IFACE in $IFACES_DOWN; do
             step_warn "Interface DOWN: $IFACE"
             if confirm "Tentar ativar $IFACE?"; then
-                ip link set "$IFACE" up 2>/dev/null \
+                sudo_run ip link set "$IFACE" up 2>/dev/null \
                     && step_ok "$IFACE ativada" \
                     || { step_err "Falha ao ativar $IFACE"; ERROS=$((ERROS+1)); }
             fi
@@ -572,7 +598,7 @@ menu_rede_diagnostico() {
     else
         step_warn "hostapd: $STATUS_AP"
         if confirm "Tentar iniciar hostapd?"; then
-            systemctl start hostapd 2>/dev/null \
+            sudo_run systemctl start hostapd 2>/dev/null \
                 && step_ok "hostapd iniciado" \
                 || { step_err "Falha ao iniciar hostapd — verifique /etc/hostapd/hostapd.conf"; ERROS=$((ERROS+1)); }
         fi
@@ -716,7 +742,7 @@ menu_docker_instalacao() {
     log_section "Docker - Instalação"
     echo ""
 
-    run_script "$DOCKER_DIR/docker.sh" "Docker Setup" || true
+    run_root_script "$DOCKER_DIR/docker.sh" "Docker Setup" || true
     press_enter_or_back
 }
 
@@ -782,9 +808,9 @@ menu_docker_configuracoes() {
                 COMPOSE_DIR=$(dirname "$COMPOSE_FILE")
                 cd "$COMPOSE_DIR"
                 [ -n "$ENV_FILE" ] \
-                    && docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d 2>&1 \
+                    && sudo_run docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d 2>&1 \
                         | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done \
-                    || docker compose -f "$COMPOSE_FILE" up -d 2>&1 \
+                    || sudo_run docker compose -f "$COMPOSE_FILE" up -d 2>&1 \
                         | while IFS= read -r L; do printf "  ${DIM}%s${RESET}\n" "$L"; done
                 sep
                 step_ok "docker compose up -d executado"
@@ -827,17 +853,17 @@ menu_satoshi() {
         [ -x "$BITCOIN_ENGINE" ] || { step_err "Motor Bitcoin não encontrado: $BITCOIN_ENGINE"; press_enter; continue; }
         case "$OPT" in
             4.1|41|1) bash "$BITCOIN_ENGINE" --profile halfin --plan || true; press_enter ;;
-            4.2|42|2) sudo bash "$BITCOIN_ENGINE" --profile halfin --install; press_enter ;;
+            4.2|42|2) sudo_run bash "$BITCOIN_ENGINE" --profile halfin --install; press_enter ;;
             4.3|43|3) bash "$BITCOIN_ENGINE" --profile halfin --status || true; press_enter ;;
             4.4|44|4)
                 step_info "Logs em tempo real. Pressione CTRL+C para voltar."
-                if ! sudo journalctl -fu "$BITCOIN_SERVICE" --no-pager; then
+                if ! sudo_run journalctl -fu "$BITCOIN_SERVICE" --no-pager; then
                     step_info "Acompanhamento encerrado; retornando ao menu Bitcoin."
                 fi
                 press_enter
                 ;;
-            4.5|45|5) sudo systemctl start "$BITCOIN_SERVICE"; press_enter ;;
-            4.6|46|6) sudo systemctl stop "$BITCOIN_SERVICE"; press_enter ;;
+            4.5|45|5) sudo_run systemctl start "$BITCOIN_SERVICE"; press_enter ;;
+            4.6|46|6) sudo_run systemctl stop "$BITCOIN_SERVICE"; press_enter ;;
             0|"") return ;;
             q|Q) exit 0 ;;
             *) step_warn "Opção inválida"; sleep 1 ;;
@@ -858,7 +884,7 @@ acao_reiniciar() {
         log_msg "WARN" "Sistema reiniciado pelo operador via ghostnode"
         step_info "Reiniciando..."
         sleep 1
-        reboot
+        sudo_run systemctl reboot
     else
         step_info "Operação cancelada"
         sleep 1
@@ -880,7 +906,7 @@ acao_desligar() {
         log_msg "WARN" "Sistema desligado pelo operador via ghostnode"
         step_info "Desligando..."
         sleep 1
-        poweroff
+        sudo_run systemctl poweroff
     else
         step_info "Operação cancelada"
         sleep 1
@@ -888,56 +914,50 @@ acao_desligar() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+tui_open_submenu() {
+    [ "${GN_TUI_PREVIEW:-0}" = 1 ] || printf '\033[2J\033[H'
+}
+
 # MENU PRINCIPAL
 # ══════════════════════════════════════════════════════════════════════════════
 
 menu_principal() {
+    local selected=1 key layout host uptime user screen_ready=0 render_cols="" current_cols
     while true; do
-        banner
-
-        # ── Linha de status rápido ────────────────────────────────────────────
-        HOSTNAME_NOW=$(hostname 2>/dev/null || echo "—")
-        UPTIME_NOW=$(uptime -p 2>/dev/null | sed 's/up //' || echo "—")
-        USER_NOW="${SUDO_USER:-$(whoami)}"
-        printf "  ${DIM}Node: ${WHITE}%-15s${RESET}  ${DIM}Up: %-20s${RESET}  ${DIM}User: %s${RESET}\n\n" \
-               "$HOSTNAME_NOW" "$UPTIME_NOW" "$USER_NOW"
-
-        sep
-        printf "  ${BOLD}${WHITE}Menu Principal${RESET}\n"
-        sep
-        echo ""
-        printf "  ${BOLD}${CYAN}[1]${RESET}  ${BOLD}Sistema${RESET}              ${DIM}Verificação, serviços, configurações e atualizações${RESET}\n"
-        printf "  ${BOLD}${CYAN}[2]${RESET}  ${BOLD}Conexões de Rede${RESET}     ${DIM}Status Wi-Fi, conexão e diagnóstico de interfaces${RESET}\n"
-        printf "  ${BOLD}${CYAN}[3]${RESET}  ${BOLD}Docker${RESET}               ${DIM}Verificação, instalação e configuração de containers${RESET}\n"
-        printf "  ${BOLD}${CYAN}[4]${RESET}  ${BOLD}Satoshi Node${RESET}         ${DIM}Monitoramento e controle do Bitcoin Core${RESET}\n"
-        echo ""
-        sep_thin
-        echo ""
-        printf "  ${BOLD}${YELLOW}[5]${RESET}  ${BOLD}Reiniciar o Node${RESET}     ${DIM}Reinicia o sistema com confirmação${RESET}\n"
-        printf "  ${BOLD}${RED}[6]${RESET}  ${BOLD}Desligar o Node${RESET}      ${DIM}Desliga o sistema com confirmação${RESET}\n"
-        echo ""
-        sep
-        printf "  ${BOLD}[q]${RESET}  Sair\n"
-        sep
-        echo ""
-        printf "  ${BOLD}Opção:${RESET} "
-        read -r OPT || exit 0
-
-        case "$OPT" in
-            1) menu_sistema ;;
-            2) menu_rede ;;
-            3) menu_docker ;;
-            4) menu_satoshi ;;
-            5) acao_reiniciar ;;
-            6) acao_desligar ;;
-            q|Q|0) printf "\n  ${DIM}Saindo do ghostnode...${RESET}\n\n"; exit 0 ;;
-            "") : ;;  # ENTER sem input recarrega o menu
-            *)  step_warn "Opção inválida"; sleep 1 ;;
+        current_cols="$(_tui_cols)"
+        if [ "$current_cols" != "$render_cols" ]; then
+            screen_ready=0
+            render_cols="$current_cols"
+        fi
+        if [ "$screen_ready" = 0 ]; then
+            banner
+            printf '\033[s'
+            screen_ready=1
+        else
+            printf '\033[u\033[J'
+        fi
+        host=$(hostname 2>/dev/null || echo "-")
+        uptime=$(uptime -p 2>/dev/null | sed 's/^up //' || echo "-")
+        user="${SUDO_USER:-$(whoami)}"
+        tui_render_main "$selected" "$host" "$uptime" "$user"
+        [ "${GN_TUI_PREVIEW:-0}" = 1 ] && return 0
+        key=$(tui_read_key) || exit 0
+        layout=$(tui_capability)
+        [ "$key" = ENTER ] && key="$selected"
+        case "$key" in
+            UP|DOWN|LEFT|RIGHT) selected=$(tui_move_focus "$selected" "$key" "$layout") ;;
+            1) tui_open_submenu; screen_ready=0; menu_sistema ;;
+            2) tui_open_submenu; screen_ready=0; menu_rede ;;
+            3) tui_open_submenu; screen_ready=0; menu_docker ;;
+            4) tui_open_submenu; screen_ready=0; menu_satoshi ;;
+            5) tui_open_submenu; screen_ready=0; acao_reiniciar ;;
+            6) tui_open_submenu; screen_ready=0; acao_desligar ;;
+            q|Q) printf "\n  ${DIM}Saindo do ghostnode...${RESET}\n\n"; exit 0 ;;
+            0|b|B|ESC) : ;;
+            *) step_warn "Tecla invalida"; sleep 1 ;;
         esac
     done
 }
-
-# ══════════════════════════════════════════════════════════════════════════════
 # PONTO DE ENTRADA
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -947,5 +967,6 @@ log_msg "INFO" "ghostnode iniciado por ${SUDO_USER:-$(whoami)}"
 
 case "${1:-}" in
     --help|-h) show_help; exit 0 ;;
+    --tui-preview) GN_TUI_PREVIEW=1; menu_principal; exit 0 ;;
     *)         menu_principal ;;
 esac

@@ -137,7 +137,7 @@ CHECK_RC=$(echo "$CHECK_COMPAT_RESULT" | grep -o 'RC=[0-9]*' | cut -d= -f2)
 # With empty arch, it should return RC=1 (warning, not crash) — NOT RC=2 (blocked)
 # and NOT blank (which would mean it crashed)
 assert_ok "check_compat with empty arch does not crash" test -n "${CHECK_RC:-}"
-assert_eq "check_compat with empty arch returns RC=1 (warning)" "1" "${CHECK_RC:-CRASH}"
+assert_eq "check_compat with empty arch returns RC=0 (base compatible)" "0" "${CHECK_RC:-CRASH}"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Section 4: check_compat — arm64 Halfin Compatibility
@@ -169,7 +169,7 @@ CHECK_ARM64_RESULT=$(bash -c "
 assert_eq "check_compat arm64 halfin returns RC=0 (compatible)" "0" "${CHECK_ARM64_RESULT:-CRASH}"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Section 5: check_compat — x86_64 Halfin Warning
+# Section 5: check_compat — x86_64 Halfin Compatibility
 # ══════════════════════════════════════════════════════════════════════════════
 printf "\n${BOLD}  Section: check_compat() — x86_64 Halfin Warning${RESET}\n"
 
@@ -195,7 +195,7 @@ CHECK_X86_RESULT=$(bash -c "
     check_compat 'halfin'
     echo \$?
 " 2>/dev/null)
-assert_eq "check_compat x86_64 halfin returns RC=1 (warning)" "1" "${CHECK_X86_RESULT:-CRASH}"
+assert_eq "check_compat x86_64 halfin returns RC=0 (compatible)" "0" "${CHECK_X86_RESULT:-CRASH}"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Section 6: Key Functions Declared

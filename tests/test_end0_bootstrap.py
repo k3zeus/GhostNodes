@@ -26,6 +26,7 @@ class End0BootstrapTests(unittest.TestCase):
             logger = temp_path / 'logger'
             ip.write_text('''#!/bin/sh
 case "$*" in
+  *"link show dev end0"*) if [ "$MODE" = no_carrier ]; then echo "2: end0: <NO-CARRIER,BROADCAST>"; else echo "2: end0: <BROADCAST,LOWER_UP>"; fi; exit 0 ;;
   "link show end0") exit 0 ;;
   *"addr show dev end0"*) [ "$MODE" = ready ] || [ "$MODE" = static ] && echo "2: end0 inet 192.168.101.92/24"; exit 0 ;;
   *"route show default dev end0"*) { [ "$MODE" = ready ] || [ -f "$ROUTE_MARKER" ]; } && echo "default via 192.168.101.1 dev end0"; exit 0 ;;
@@ -42,7 +43,9 @@ exit 0
                 'LOGGER_BIN': str(logger), 'IFUP_LOG': str(log),
                 'ROUTE_MARKER': str(marker), 'INTERFACES_FILE': str(config),
             }
-            result = subprocess.run([BASH, str(script)], env=env, text=True, capture_output=True, timeout=10)
+            # Git Bash on Windows may need several seconds to create temporary shell mocks.
+            # The timeout guards a real hang without making this unit test timing-sensitive.
+            result = subprocess.run([BASH, str(script)], env=env, text=True, capture_output=True, timeout=30)
             calls = log.read_text() if log.exists() else ''
             return result, calls
 
@@ -51,6 +54,11 @@ exit 0
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(calls, '')
 
+    def test_no_carrier_is_a_valid_wifi_failover_state(self):
+        result, calls = self.run_guard('no_carrier')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls, '')
+        self.assertIn('no carrier', result.stdout)
     def test_missing_uplink_requests_ifup_and_fails_closed(self):
         result, calls = self.run_guard('missing')
         self.assertEqual(result.returncode, 1)
@@ -65,6 +73,12 @@ exit 0
         self.assertEqual(calls, '--force end0\n')
         self.assertIn('configured static gateway', result.stdout)
 
+    def test_preinstall_pins_end0_as_the_primary_wired_uplink(self):
+        preinstall = (ROOT / 'halfin' / 'pre_install.sh').read_text(encoding='utf-8')
+        self.assertIn('PRIMARY_WAN_IFACE="${HALFIN_PRIMARY_WAN_IFACE:-end0}"', preinstall)
+        self.assertIn('ip link show "$PRIMARY_WAN_IFACE"', preinstall)
+        self.assertIn('HALFIN_WAN_IFACE="$PRIMARY_WAN_IFACE"', preinstall)
+        self.assertIn('Environment=HALFIN_PRIMARY_UPLINK=${PRIMARY_WAN_IFACE}', preinstall)
     def test_preinstall_registers_boot_guard(self):
         preinstall = (ROOT / 'halfin' / 'pre_install.sh').read_text(encoding='utf-8')
         self.assertIn('halfin-end0-ensure.service', preinstall)

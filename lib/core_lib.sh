@@ -37,59 +37,67 @@ STATE_FILE="/var/lib/ghostnodes_state.env"
 # ══════════════════════════════════════════════════════════════════════════════
 # BARRA DE STATUS GLOBAL — temperatura + data/hora alinhada
 # ══════════════════════════════════════════════════════════════════════════════
+ui_center_pad() {
+    local width="${1:-66}" cols
+    cols="${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}"
+    case "$cols" in ''|*[!0-9]*) cols=80 ;; esac
+    [ "$cols" -gt "$width" ] && printf '%*s' "$(( (cols - width) / 2 ))" ''
+}
 status_bar() {
-    local TEMP="N/A"
-    local DATETIME
+    local TEMP="N/A" DATETIME PAD
     DATETIME=$(date '+%d/%m/%Y  %H:%M:%S')
-
-    for TFILE in \
-        /sys/class/thermal/thermal_zone0/temp \
-        /sys/devices/virtual/thermal/thermal_zone0/temp; do
+    PAD=$(ui_center_pad 66)
+    for TFILE in /sys/class/thermal/thermal_zone0/temp /sys/devices/virtual/thermal/thermal_zone0/temp; do
         if [ -f "$TFILE" ]; then
             local R
             R=$(cat "$TFILE" 2>/dev/null)
-            [ "$R" -gt 1000 ] 2>/dev/null && TEMP="$(( R/1000 ))°C" || TEMP="${R}°C"
+            [ "$R" -gt 1000 ] 2>/dev/null && TEMP="$(( R/1000 ))C" || TEMP="${R}C"
             break
         fi
     done
-
-    printf "  ${DIM}┌────────────────────────────────────────────────────────────┐${RESET}\n"
-    printf "  ${DIM}│${RESET}  ${YELLOW}🌡  %-10s${RESET}  ${DIM}│${RESET}  ${CYAN}📅  %-36s${RESET}  ${DIM}│${RESET}\n" "$TEMP" "$DATETIME"
-    printf "  ${DIM}└────────────────────────────────────────────────────────────┘${RESET}\n"
+    printf "%s${DIM}┌────────────────────────────────────────────────────────────┐${RESET}\n" "$PAD"
+    printf "%s${DIM}│${RESET}  ${YELLOW}🌡  %-10s${RESET}  ${DIM}│${RESET}  ${CYAN}📅  %-36s${RESET}  ${DIM}│${RESET}\n" "$PAD" "$TEMP" "$DATETIME"
+    printf "%s${DIM}└────────────────────────────────────────────────────────────┘${RESET}\n" "$PAD"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # BANNER PRINCIPAL GLOBAL — GHOST NODES (Layout Atualizado)
 # ══════════════════════════════════════════════════════════════════════════════
 main_banner() {
-    local TITLE="${1:-}"
-    clear
+    local TITLE="${1:-}" PAD
+    PAD=$(ui_center_pad 66)
+    if [ "${GN_TUI_NO_CLEAR:-0}" = 1 ]; then
+        :
+    else
+        # Escape nativo: elimina res?duos sem invocar clear externo.
+        printf '\033[2J\033[H'
+    fi
     printf "${BOLD}${CYAN}"
-    echo "  ╔══════════════════════════════════════════════════════════════╗"
-    echo "  ║                                                              ║"
-    echo "  ║   ██████╗ ██╗  ██╗ ██████╗  ██████╗ ████████╗                ║"
-    echo "  ║  ██╔════╝ ██║  ██║██╔═══██╗██╔════╝ ╚══██╔══╝                ║"
-    echo "  ║  ██║  ███╗███████║██║   ██║╚█████╗     ██║                   ║"
-    echo "  ║  ██║   ██║██╔══██║██║   ██║ ╚═══██╗    ██║                   ║"
-    echo "  ║  ╚██████╔╝██║  ██║╚██████╔╝██████╔╝    ██║                   ║"
-    echo "  ║   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═════╝     ╚═╝                   ║"
-    echo "  ║                                                              ║"
-    echo "  ║      ███╗   ██╗ ██████╗ ██████╗ ███████╗███████╗             ║"
-    echo "  ║      ████╗  ██║██╔═══██╗██╔══██╗██╔════╝██╔════╝             ║"
-    echo "  ║      ██╔██╗ ██║██║   ██║██║  ██║█████╗  ███████╗             ║"
-    echo "  ║      ██║╚██╗██║██║   ██║██║  ██║██╔══╝  ╚════██║             ║"
-    echo "  ║      ██║ ╚████║╚██████╔╝██████╔╝███████╗███████║             ║"
-    echo "  ║      ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝             ║"
-    echo "  ║                                                              ║"
+    echo "${PAD}╔══════════════════════════════════════════════════════════════╗"
+    echo "${PAD}║                                                              ║"
+    echo "${PAD}║   ██████╗ ██╗  ██╗ ██████╗  ██████╗ ████████╗                ║"
+    echo "${PAD}║  ██╔════╝ ██║  ██║██╔═══██╗██╔════╝ ╚══██╔══╝                ║"
+    echo "${PAD}║  ██║  ███╗███████║██║   ██║╚█████╗     ██║                   ║"
+    echo "${PAD}║  ██║   ██║██╔══██║██║   ██║ ╚═══██╗    ██║                   ║"
+    echo "${PAD}║  ╚██████╔╝██║  ██║╚██████╔╝██████╔╝    ██║                   ║"
+    echo "${PAD}║   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═════╝     ╚═╝                   ║"
+    echo "${PAD}║                                                              ║"
+    echo "${PAD}║      ███╗   ██╗ ██████╗ ██████╗ ███████╗███████╗             ║"
+    echo "${PAD}║      ████╗  ██║██╔═══██╗██╔══██╗██╔════╝██╔════╝             ║"
+    echo "${PAD}║      ██╔██╗ ██║██║   ██║██║  ██║█████╗  ███████╗             ║"
+    echo "${PAD}║      ██║╚██╗██║██║   ██║██║  ██║██╔══╝  ╚════██║             ║"
+    echo "${PAD}║      ██║ ╚████║╚██████╔╝██████╔╝███████╗███████║             ║"
+    echo "${PAD}║      ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝             ║"
+    echo "${PAD}║                                                              ║"
     if [ -n "$TITLE" ]; then
         local T_LEN=${#TITLE}
         local P_LEFT=$(( (62 - T_LEN) / 2 ))
         local P_RIGHT=$(( 62 - T_LEN - P_LEFT ))
         local PAD_L=$(printf "%*s" "$P_LEFT" "")
         local PAD_R=$(printf "%*s" "$P_RIGHT" "")
-        printf "  ║${RESET}${BOLD}${WHITE}%s%s%s${RESET}${BOLD}${CYAN}║\n" "$PAD_L" "$TITLE" "$PAD_R"
+        printf "%s║${RESET}${BOLD}${WHITE}%s%s%s${RESET}${BOLD}${CYAN}║\n" "$PAD" "$PAD_L" "$TITLE" "$PAD_R"
     fi
-    echo "  ╚══════════════════════════════════════════════════════════════╝"
+    echo "${PAD}╚══════════════════════════════════════════════════════════════╝"
     printf "${RESET}\n"
     
     status_bar
