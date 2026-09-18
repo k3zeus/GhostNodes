@@ -1,21 +1,38 @@
-# --local: detects only local end0/wlan1 networks and produces one complete TCP report per /24.
+#!/usr/bin/env bash
+# --local: detecta somente redes IPv4 locais em end0 e wlan1. Produz um relatorio TCP completo por /24.
+set -euo pipefail
+
 if [ "${1:-}" = "--local" ]; then
     [ "${EUID:-$(id -u)}" -eq 0 ] || exec sudo -- "$0" "$@"
     command -v nmap >/dev/null || { echo 'nmap ausente.' >&2; exit 1; }
-    root=/var/lib/ghostnodes/security/network-scans; install -d -m 0700 "$root"
+    root=/var/lib/ghostnodes/security/network-scans
+    install -d -m 0700 "$root"
+    declare -A seen_networks=()
     found=0
+
     for iface in end0 wlan1; do
-        cidr=$(ip -o -4 addr show dev "$iface" scope global 2>/dev/null | awk 'NR==1{print $4}')
+        cidr=$(ip -o -4 addr show dev "$iface" scope global 2>/dev/null | awk 'NR==1 {print $4}')
         [ -n "$cidr" ] || continue
         network=$(python3 -c 'import ipaddress,sys; print(ipaddress.ip_network(str(ipaddress.ip_interface(sys.argv[1]).ip)+"/24", strict=False))' "$cidr")
+        [ -n "${seen_networks[$network]:-}" ] && continue
+        seen_networks[$network]=1
         report="$root/$(date +%Y%m%dT%H%M%S)-${iface}-${network//\//_}.txt"
         printf 'interface=%s network=%s scope=local-authorized\n' "$iface" "$network" | tee "$report"
-        nmap -sn -T3 --max-retries 2 "$network" | tee -a "$report"
-        awk '/Up$/{print $2}' "$report" | while read -r host; do printf '\n--- %s: all TCP ports ---\n' "$host" | tee -a "$report"; nmap -p- -T3 --max-retries 2 "$host" | tee -a "$report"; done
-        chmod 0600 "$report"; echo "Relatório: $report"; found=1
+        printf '\n--- host discovery ---\n' | tee -a "$report"
+        nmap -sn -T3 --max-retries 2 -oG - "$network" | tee -a "$report"
+        while read -r host; do
+            printf '\n--- %s: all TCP ports ---\n' "$host" | tee -a "$report"
+            nmap -p- -T3 --max-retries 2 "$host" | tee -a "$report"
+        done < <(awk '/Up$/{print $2}' "$report")
+        chmod 0600 "$report"
+        echo "Relatorio: $report"
+        found=1
     done
-    [ "$found" -eq 1 ] || { echo 'Nenhuma rede IPv4 em end0 ou wlan1.'; exit 0; }; exit 0
+
+    [ "$found" -eq 1 ] || { echo 'Nenhuma rede IPv4 em end0 ou wlan1.'; exit 0; }
+    exit 0
 fi
+
 #!/bin/bash
 
 # Verifica dependências

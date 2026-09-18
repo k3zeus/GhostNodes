@@ -1,1 +1,5 @@
-# OSINT defensivo compartilhado`n`nFerramentas genéricas: Lynis, debsecan, systemd-analyze, auditoria SSH, AIDE seletivo, Gitleaks e exposure report com allowlist. Não há Shodan automático, varredura de terceiros ou firewall ativo. Cada Raiz declara ativação em <raiz>/services/osint/manifest.env.
+# OSINT defensivo compartilhado
+
+Ferramentas genéricas: Lynis, debsecan, `systemd-analyze`, auditoria SSH, AIDE seletivo, Gitleaks e relatório de exposição com allowlist. Não há Shodan automático, varredura de terceiros ou firewall ativo.
+
+Cada projeto raiz declara a ativação em `<raiz>/services/osint/manifest.env`.
