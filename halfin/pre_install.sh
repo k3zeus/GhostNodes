@@ -121,6 +121,13 @@ etapa_armazenamento() {
     bash "${HALFIN_DIR}/tools/storage_tuning.sh"
 }
 
+etapa_acesso_seguro() {
+    bash "${HALFIN_DIR}/tools/access_hardening.sh"
+}
+
+etapa_inventario_seguranca() {
+    bash "${HALFIN_DIR}/tools/security_inventory.sh"
+}
 etapa_alias_wifi() {
     halfin_configure_wifi_roles
     [ -n "${HALFIN_WIFI_AP_IFACE:-}" ] && AP_IFACE="$HALFIN_WIFI_AP_IFACE"
@@ -348,7 +355,7 @@ etapa_chown() {
 main() {
     local stage rc
     local stages=(etapa_usuario etapa_sourcelist etapa_remove_docker etapa_hostname
-        etapa_update etapa_ferramentas etapa_armazenamento etapa_alias_wifi etapa_orange3 etapa_extras
+        etapa_update etapa_ferramentas etapa_armazenamento etapa_acesso_seguro etapa_alias_wifi etapa_orange3 etapa_extras etapa_inventario_seguranca
         etapa_dashboard etapa_aliases etapa_remove_legado etapa_chown)
     if [ "${1:-}" = --step ]; then
         stage="${2:-}"
