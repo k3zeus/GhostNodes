@@ -1,0 +1,1 @@
+# Scripts compartilhados`n`n`scan_network.sh --local` detecta redes IPv4 em end0 e wlan1, reduz cada uma ao /24 local e gera um relatório completo de portas TCP por rede autorizada em /var/lib/ghostnodes/security/network-scans/.
