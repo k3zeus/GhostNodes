@@ -7,3 +7,8 @@ nodenation text eol=lf
 ghostnode text eol=lf
 Dockerfile text eol=lf
 docker-compose.yml text eol=lf
+
+# Preserve the imported Swissknife bundle byte-for-byte; it remains inactive.
+services/osint/swissknife/*.sh -text
+services/osint/swissknife/*.py -text
+services/osint/swissknife/*.md -text
