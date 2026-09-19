@@ -1,36 +1,9 @@
 #!/usr/bin/env bash
-# Publica reports/ via Caddy — SÓ na interface de GERÊNCIA, nunca na LAN auditada.
 set -euo pipefail
-BASE="$HOME/swissknife"
-
-echo "Interfaces de rede disponíveis:"
-ip -4 -o addr show | awk '{print $2, $4}'
-echo ""
-read -rp "Em qual IP de GERÊNCIA (NÃO a LAN auditada!) o painel deve escutar? " MGMT_IP
-
-if [[ -z "$MGMT_IP" ]]; then
-  echo "[!] IP vazio, abortando."
-  exit 1
-fi
-
-echo "[*] Gere a senha (será pedida interativamente):"
-HASH="$(caddy hash-password)"
-
-sudo tee /etc/caddy/Caddyfile >/dev/null <<EOF
-# Escuta SÓ no IP de gerência informado — nunca exposto na rede auditada.
-http://${MGMT_IP}:8080 {
-    basic_auth {
-        auditor ${HASH}
-    }
-    root * ${BASE}/reports
-    file_server browse
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$SCRIPT_DIR/network_discovery.sh"; IFACE_MGMT=${MGMT_INTERFACE:-$(select_lan_interface)}; interface_is_real_up "$IFACE_MGMT" || { fail "Interface de gerência inválida: $IFACE_MGMT"; exit 1; }; is_halfin_ap "$IFACE_MGMT" && { fail "AP Halfin não pode publicar relatórios: $IFACE_MGMT"; exit 1; }; IP=$(interface_ipv4_cidr "$IFACE_MGMT"); [[ -n "$IP" ]] || { fail "Interface de gerência sem IPv4: $IFACE_MGMT"; exit 1; }
+OUT="${SWISS_LOG_ROOT}/serve"; mkdir -p "$OUT"; cat > "$OUT/serve-command.sh" <<EOF
+#!/usr/bin/env bash
+cd "${SWISS_LOG_ROOT}/reports"
+exec python3 -m http.server 8080 --bind "${IP%/*}"
 EOF
-
-sudo systemctl restart caddy
-
-echo ""
-echo "[+] Relatórios disponíveis em: http://${MGMT_IP}:8080"
-echo "[!] Isso é HTTP puro (sem TLS) — a senha do basic_auth trafega em texto claro"
-echo "    nessa interface de gerência. Se você tiver Tailscale configurado, prefira"
-echo "    publicar via 'tailscale cert' + TLS no Caddyfile em vez deste HTTP simples."
+chmod 0700 "$OUT/serve-command.sh"; printf 'interface=%s\naddress=%s\ncommand=%s\n' "$IFACE_MGMT" "${IP%/*}:8080" "$OUT/serve-command.sh" > "$OUT/serve-instructions.txt"; printf 'Instruções salvas em %s/serve-instructions.txt\n' "$OUT"

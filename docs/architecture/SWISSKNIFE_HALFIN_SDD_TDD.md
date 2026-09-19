@@ -2,32 +2,42 @@
 
 ## Objetivo
 
-Validar todos os scripts do bundle Swissknife em ARM64 e AMD64 sem modificar rede, serviços, pacotes, `/etc`, `/opt` ou o checkout do GhostNodes/Halfin.
+Disponibilizar o Swissknife como módulo OSINT manual, compatível com Halfin ARM64 e AMD64, sem modificar a topologia de rede que sustenta `end0`, `wlan0`, `wlan1` e o AP Halfin.
 
 ## Fatos confirmados
 
-- O instalador original faz `apt upgrade`, instala pacotes, configura zram, reinicia NetworkManager, adiciona uma origem Caddy e escreve em `/etc`.
-- O bundle usa `eth0` como LAN por padrão; Halfin ARM64 usa `end0`, `wlan0` e `wlan1`, e o host AMD64 usa `enp0s3`.
-- O bundle entregue está achatado: `audit-all.sh` chama `services/01-*.sh`, mas a pasta `services/` não existe. Sem `set -e`, ele também retorna sucesso após falhar em todas as fases, gerando um falso positivo.`n- Os scripts importados não possuem bit executável no Git; o harness aplica essa permissão apenas à cópia temporária para testar o conteúdo.
+- O bundle anterior fixava `eth0`; esse nome não existe nos dois perfis testados.
+- No Halfin ARM64, `wlan0` e `br0` pertencem ao AP e são declarados como não gerenciados pelo NetworkManager. As rotas de gestão observadas são `end0` (métrica 100) e `wlan1` (métrica 600).
+- No host AMD64, a interface de gestão observada é `enp0s3`.
+- O orquestrador anterior buscava `services/01-*.sh`, embora as fases estejam na própria raiz do bundle. Como ele não propagava todas as falhas, podia reportar êxito depois de falhar.
+- O instalador anterior alterava componentes fora do escopo do módulo, inclusive rede. Isto viola a base imutável de rede do Halfin.
 
-## Contrato de teste
+## Implementação aprovada
 
-`tests/swissknife/run_isolated_contract.sh` copia o bundle para `~/logs/osint/swissknife/<execução>/work`, fornece comandos simulados e registra cada operação privilegiada interceptada. Ele:
+1. `network_discovery.sh` confirma que cada interface é física, existe, está ativa, tem IPv4 e rota local.
+2. A seleção recusa qualquer interface definida como AP pela configuração Halfin ou em modo wireless `AP`.
+3. Entre interfaces elegíveis, a seleção automática usa a menor métrica de rota. `IFACE_LAN`, `IFACE_WLAN`, `MGMT_INTERFACE` e `SCAN_RANGE` são revalidados; uma faixa externa à sub-rede local falha.
+4. Todas as fases e o orquestrador usam `set -euo pipefail`; pré-requisito, comando ou relatório obrigatório ausente encerra a operação sem sucesso falso.
+5. O orquestrador chama as fases na raiz correta do bundle.
+6. O instalador apenas lista dependências por padrão e só chama o gerenciador de pacotes com `SWISSKNIFE_APPLY=1`. Ele não altera NetworkManager, rotas, aliases, Wi-Fi, `/etc` de rede, repositórios externos ou atualização integral do sistema.
+7. Logs, capturas, relatórios e instruções de publicação usam exclusivamente `~/logs/osint/swissknife/`. A publicação gera um comando local e não instala Caddy nem escreve em `/etc`.
 
-1. fotografa interface, estado do NetworkManager, configuração em `/etc/NetworkManager/conf.d` e hashes do bundle antes/depois;
-2. confirma que o orquestrador original falha pelo layout achatado;
-3. usa apenas uma adaptação temporária na cópia para testar o fluxo pretendido;
-4. executa instalador, fases 1–6, orquestrador e publicação de relatórios com ferramentas simuladas;
-5. exige todos os relatórios previstos e falha se o estado observado mudar.
+## TDD
 
-Nenhum pacote é instalado, nenhum scan real é enviado e nenhuma alteração é aplicada ao host. A ativação operacional futura continua dependente de especificação própria, correção deliberada do layout e teste físico autorizado.
-## Evidência de execução isolada
+O contrato `tests/swissknife/run_isolated_contract.sh` executa o bundle copiado para uma área temporária. As ferramentas de instalação e auditoria são simuladas, e o teste compara antes/depois:
 
-| Host | Arquitetura confirmada | Resultado |
+- estado do NetworkManager;
+- interfaces de rede;
+- hashes de `/etc/NetworkManager/conf.d`;
+- hashes do bundle de origem.
+
+O teste exige relatórios de todas as fases, seleção de uma LAN física válida, exclusão do AP e `PASS` final. Nenhum scan real é enviado e nenhum pacote, serviço ou configuração de rede é alterado.
+
+## Evidência atual
+
+| Host | Arquitetura | Resultado |
 |---|---|---|
-| `192.168.101.92` | `aarch64` / ARM64 | PASS; relatórios em `~/logs/osint/swissknife/20260919T154329-188297/` |
-| `192.168.101.132` | `x86_64` / AMD64 | PASS; relatórios em `~/logs/osint/swissknife/20260919T154336-84515/` |
+| `192.168.101.92` | ARM64 / `aarch64` | PASS |
+| `192.168.101.132` | AMD64 / `x86_64` | PASS |
 
-Em ambos, o harness confirmou que `before.state` e `after.state` são idênticos. Foram criados os relatórios wireless, WPS, p0f, broadcast, NetBIOS, mDNS, ARP, descoberta XML, scan profundo, checagens TLS/SSH/Web e os relatórios Markdown/HTML consolidados. Todas as operações administrativas do instalador foram interceptadas em `mocked-privileged-operations.log`; nenhum pacote, serviço, arquivo de rede ou checkout foi alterado.
-
-O resultado **não aprova** executar o bundle diretamente em Halfin: o layout achatado, o retorno zero enganoso do orquestrador, os padrões de interface incompatíveis e as mutações do instalador continuam bloqueadores para uma ativação operacional.
+As duas execuções concluíram com `before.state` idêntico a `after.state` e gravaram somente em `~/logs/osint/swissknife/<execução>/`.

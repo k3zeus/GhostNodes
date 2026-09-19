@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SWISS_LOG_ROOT=${SWISS_LOG_ROOT:-"$HOME/logs/osint/swissknife"}
+SWISS_SYS_CLASS_NET=${SWISS_SYS_CLASS_NET:-/sys/class/net}
+HALFIN_NM_CONF_DIR=${HALFIN_NM_CONF_DIR:-/etc/NetworkManager/conf.d}
+fail() { printf '[ERRO] %s\n' "$*" >&2; return 1; }
+interface_is_real_up() { local iface=$1; [[ -e "$SWISS_SYS_CLASS_NET/$iface/device" ]] || return 1; ip -o link show dev "$iface" up >/dev/null 2>&1; }
+is_halfin_ap() { local iface=$1 mode connection; if [[ -d "$HALFIN_NM_CONF_DIR" ]] && grep -Rqs "interface-name:${iface}" "$HALFIN_NM_CONF_DIR"; then return 0; fi; mode=$(iw dev "$iface" info 2>/dev/null | awk '/type / {print $2; exit}' || true); [[ "$mode" == AP ]] && return 0; command -v nmcli >/dev/null 2>&1 || return 1; connection=$(nmcli -g GENERAL.CONNECTION device show "$iface" 2>/dev/null | head -n1 || true); [[ -n "$connection" && "$connection" != '--' ]] || return 1; [[ "$(nmcli -g 802-11-wireless.mode connection show "$connection" 2>/dev/null | head -n1 || true)" == ap ]]; }
+interface_ipv4_cidr() { ip -o -4 addr show dev "$1" scope global 2>/dev/null | awk 'NR==1 {print $4}'; }
+route_metric() { local metric; metric=$(ip -4 route show default dev "$1" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="metric"){print $(i+1); exit}}'); [[ -n "$metric" ]] || metric=99999; printf '%s\n' "$metric"; }
+select_lan_interface() { local requested=${IFACE_LAN:-} iface cidr metric best='' best_metric=999999; if [[ -n "$requested" ]]; then interface_is_real_up "$requested" || { fail "Interface LAN inexistente ou inativa: $requested"; return; }; is_halfin_ap "$requested" && { fail "Interface LAN é AP Halfin e foi recusada: $requested"; return; }; cidr=$(interface_ipv4_cidr "$requested"); [[ -n "$cidr" ]] || { fail "Interface LAN não possui IPv4 real: $requested"; return; }; ip -4 route show dev "$requested" | grep -q . || { fail "Interface LAN sem rota local: $requested"; return; }; printf '%s\n' "$requested"; return; fi; while read -r iface; do interface_is_real_up "$iface" || continue; is_halfin_ap "$iface" && continue; cidr=$(interface_ipv4_cidr "$iface"); [[ -n "$cidr" ]] || continue; ip -4 route show dev "$iface" | grep -q . || continue; metric=$(route_metric "$iface"); if (( metric < best_metric )); then best=$iface; best_metric=$metric; fi; done < <(ip -o link show up | awk '{sub(/:$/, "", $2); print $2}' | cut -d@ -f1); [[ -n "$best" ]] || { fail 'Nenhuma interface física, ativa, com IPv4 e fora do AP Halfin foi encontrada'; return; }; printf '%s\n' "$best"; }
+select_wireless_audit_interface() { local requested=${IFACE_WLAN:-} iface mode; if [[ -n "$requested" ]]; then interface_is_real_up "$requested" || { fail "Interface wireless inexistente ou inativa: $requested"; return; }; is_halfin_ap "$requested" && { fail "Interface wireless é AP Halfin e foi recusada: $requested"; return; }; mode=$(iw dev "$requested" info 2>/dev/null | awk '/type / {print $2; exit}' || true); [[ -n "$mode" ]] || { fail "Interface não é wireless: $requested"; return; }; printf '%s\n' "$requested"; return; fi; while read -r iface; do interface_is_real_up "$iface" || continue; is_halfin_ap "$iface" && continue; mode=$(iw dev "$iface" info 2>/dev/null | awk '/type / {print $2; exit}' || true); [[ -n "$mode" ]] && { printf '%s\n' "$iface"; return; }; done < <(ip -o link show up | awk '{sub(/:$/, "", $2); print $2}' | cut -d@ -f1); fail 'Nenhum adaptador wireless ativo fora do AP Halfin foi encontrado'; }
+select_scan_range() { local iface=$1 cidr=${2:-} local_cidr; local_cidr=$(ip -4 route show dev "$iface" proto kernel 2>/dev/null | awk 'NR==1 {print $1}'); [[ -n "$local_cidr" ]] || local_cidr=$(interface_ipv4_cidr "$iface"); [[ -n "$local_cidr" ]] || { fail "Não foi possível obter a rede local de $iface"; return; }; if [[ -n "$cidr" ]]; then if ! python3 - "$local_cidr" "$cidr" <<'PY'
+import ipaddress, sys
+raise SystemExit(0 if ipaddress.ip_network(sys.argv[2], strict=False).subnet_of(ipaddress.ip_network(sys.argv[1], strict=False)) else 1)
+PY
+then fail "SCAN_RANGE não pertence à rede local de $iface"; return 1; fi; printf '%s\n' "$cidr"; else python3 - "$local_cidr" <<'PY'
+import ipaddress, sys
+print(ipaddress.ip_network(sys.argv[1], strict=False))
+PY
+fi; }
+record_interface_selection() { local report=$1 iface=$2 range=$3; mkdir -p "$report"; { printf 'interface=%s\n' "$iface"; printf 'network=%s\n' "$range"; printf 'metric=%s\n' "$(route_metric "$iface")"; printf 'halfin_ap=false\n'; } > "$report/interface-selection.txt"; }

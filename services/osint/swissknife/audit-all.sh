@@ -1,29 +1,6 @@
 #!/usr/bin/env bash
-# Orquestrador - roda as 6 fases em sequência.
-# Rode dentro de uma sessão tmux: tmux new -s audit && ./audit-all.sh
-set -uo pipefail
-
-BASE="$HOME/swissknife"
-REPORT="$BASE/reports/$(date +%Y%m%d-%H%M)"
-mkdir -p "$REPORT"
-
-export IFACE_LAN=${IFACE_LAN:-eth0}
-export IFACE_WLAN=${IFACE_WLAN:-}
-export SCAN_RANGE=${SCAN_RANGE:-}
-export VULN=${VULN:-0}
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo "[*] Relatório desta rodada: $REPORT"
-echo "[*] IFACE_LAN=$IFACE_LAN | IFACE_WLAN=${IFACE_WLAN:-<autodetectar>} | VULN=$VULN"
-
-"$SCRIPT_DIR/services/01-wireless-survey.sh" "$REPORT"
-"$SCRIPT_DIR/services/02-passive-listen.sh"  "$REPORT"
-"$SCRIPT_DIR/services/03-discovery.sh"       "$REPORT"
-"$SCRIPT_DIR/services/04-deep-scan.sh"       "$REPORT"
-"$SCRIPT_DIR/services/05-service-checks.sh"  "$REPORT"
-python3 "$SCRIPT_DIR/services/06-generate-report.py" "$REPORT"
-
-echo ""
-echo "[+] Concluído: $REPORT/report.md | report.html"
-echo "[+] Para publicar: ./serve-reports.sh"
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$SCRIPT_DIR/network_discovery.sh"; RUN="${SWISS_LOG_ROOT}/reports/$(date +%Y%m%d-%H%M%S)"; mkdir -p "$RUN"
+IFACE_LAN=$(select_lan_interface); SCAN_RANGE=$(select_scan_range "$IFACE_LAN" "${SCAN_RANGE:-}"); export IFACE_LAN SCAN_RANGE IFACE_WLAN=${IFACE_WLAN:-} SWISS_LOG_ROOT; record_interface_selection "$RUN" "$IFACE_LAN" "$SCAN_RANGE"
+for phase in 01-wireless-survey.sh 02-passive-listen.sh 03-discovery.sh 04-deep-scan.sh 05-service-checks.sh; do bash "$SCRIPT_DIR/$phase" "$RUN"; done
+python3 "$SCRIPT_DIR/06-generate-report.py" "$RUN"; printf 'Concluído: %s/report.md e report.html\n' "$RUN"
