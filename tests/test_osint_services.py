@@ -54,6 +54,21 @@ class OsintContract(unittest.TestCase):
             self.assertEqual(subprocess.run([BASH, '-n', str(swiss / name)]).returncode, 0, name)
         ast.parse((swiss / '06-generate-report.py').read_text(encoding='utf-8'))
 
+    def test_swissknife_isolated_harness_contract(self):
+        harness = ROOT / 'tests/swissknife/run_isolated_contract.sh'
+        text = harness.read_text()
+        self.assertTrue(text.startswith('#!/usr/bin/env bash'))
+        self.assertIn('RUN_ROOT=${RUN_ROOT:-"$HOME/logs/osint/swissknife/', text)
+        self.assertIn('snapshot before', text)
+        self.assertIn('snapshot after', text)
+        self.assertIn('local name=$1', text)
+        self.assertIn('local out="$RUN_ROOT/${name}.state"', text)
+        self.assertIn('mocked-privileged-operations.log', text)
+        self.assertIn('target=${1:-}', text)
+        self.assertNotIn('python3 python3', text)
+        self.assertNotIn(b'\r\n', harness.read_bytes())
+        self.assertEqual(subprocess.run([BASH, '-n', str(harness)]).returncode, 0)
+
 
 if __name__ == '__main__':
     unittest.main()
